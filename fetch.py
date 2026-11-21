@@ -164,25 +164,29 @@ class Collector:
 
     def oneway(self, o: str, dst: str) -> list[dict]:
         out = []
+        # API отдаёт на каждую дату только самый дешёвый вариант — обычно с
+        # пересадкой. Поэтому отдельно запрашиваем и самые дешёвые прямые.
         for m in months_between(self.dep_from, self.dep_to):
-            for r in self.query(origin=o, destination=dst, departure_at=ym(m),
-                                one_way="true") or []:
-                dep_at = r.get("departure_at") or ""
-                dep = iso_date(dep_at)
-                if (not dep or r.get("price") is None
-                        or not self.dep_from <= date.fromisoformat(dep) <= self.dep_to):
-                    continue
-                out.append({
-                    "origin": o, "destination": dst,
-                    "departure_date": dep,
-                    "departure_time": dep_at[11:16] or None,
-                    "price_eur": round(float(r["price"]), 2),
-                    "airline": r.get("airline"),
-                    "flight_number": str(r.get("flight_number") or "") or None,
-                    "transfers": r.get("transfers"),
-                    "duration_min": r.get("duration_to") or r.get("duration"),
-                    "link": r.get("link"),
-                })
+            for direct in ("false", "true"):
+                rows = self.query(origin=o, destination=dst, departure_at=ym(m),
+                                  one_way="true", direct=direct) or []
+                for r in rows:
+                    dep_at = r.get("departure_at") or ""
+                    dep = iso_date(dep_at)
+                    if (not dep or r.get("price") is None
+                            or not self.dep_from <= date.fromisoformat(dep) <= self.dep_to):
+                        continue
+                    out.append({
+                        "origin": o, "destination": dst,
+                        "departure_date": dep,
+                        "departure_time": dep_at[11:16] or None,
+                        "price_eur": round(float(r["price"]), 2),
+                        "airline": r.get("airline"),
+                        "flight_number": str(r.get("flight_number") or "") or None,
+                        "transfers": r.get("transfers"),
+                        "duration_min": r.get("duration_to") or r.get("duration"),
+                        "link": r.get("link"),
+                    })
         return out
 
 

@@ -233,7 +233,12 @@ function renderDirection(o, d, title, color, wFrom, wTo, tr) {
 }
 
 function renderChart(el, rows, color, wFrom, wTo, t) {
-  if (!rows.length) { el.innerHTML = '<div class="muted">В этом окне дат цен в кэше Aviasales пока нет.</div>'; return; }
+  if (!rows.length) {
+    el.innerHTML = `<div class="muted">${$("tr").value !== ""
+      ? "Под фильтр пересадок ничего не подошло — попробуйте «Пересадки: Любые»."
+      : "В этом окне дат цен в кэше Aviasales пока нет — попробуйте «Даты вылета: все»."}</div>`;
+    return;
+  }
   const W = Math.max(320, el.clientWidth || 800), H = 260, P = { l: 48, r: 14, t: 12, b: 28 };
   const x0 = +new Date(wFrom + "T00:00:00"), x1 = +new Date(wTo + "T00:00:00");
   const ys = rows.map(r => r.price_eur);
