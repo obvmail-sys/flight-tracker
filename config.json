@@ -2,7 +2,8 @@
   "routes": [
     { "origin": "HEL", "destination": "BCN" }
   ],
-  "horizon_days_min": 60,
-  "horizon_days_max": 90,
-  "trip_days": 3
+  "collect_days_min": 0,
+  "collect_days_max": 90,
+  "view_days_min": 60,
+  "view_days_max": 90
 }

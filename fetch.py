@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Сбор цен на авиабилеты из Travelpayouts Aviasales Data API (prices_for_dates).
+"""Сбор цен на авиабилеты в одну сторону из Travelpayouts Aviasales Data API
+(prices_for_dates, one_way=true).
 
-Для каждого маршрута из config.json проверяются вылеты в окне
-[сегодня + horizon_days_min, сегодня + horizon_days_max] и поездки ровно
-на trip_days дней (возврат = вылет + trip_days):
-  A) туда-обратно одним билетом (one_way=false);
-  B) два билета в одну сторону (one_way=true), сумма цен.
+Для каждого маршрута из config.json запрашиваются оба направления
+(origin → destination и обратно) на вылеты в окне
+[сегодня + collect_days_min, сегодня + collect_days_max].
 
 Пишет:
   data/prices.json   — история цен (без дублей)
@@ -43,8 +42,8 @@ RETRIES = 3
 # Поля, по которым запись считается той же самой (цена входит в ключ:
 # новая цена = новая запись истории).
 KEY_FIELDS = (
-    "origin", "destination", "type", "departure_date", "return_date",
-    "airline_out", "airline_back", "transfers", "transfers_back", "price_eur",
+    "origin", "destination", "departure_date", "departure_time",
+    "airline", "flight_number", "transfers", "price_eur",
 )
 
 log = logging.getLogger("fetch")
@@ -85,9 +84,10 @@ def load_config(path: Path) -> dict:
         cfg["routes"] = [{"origin": cfg["origin"], "destination": cfg["destination"]}]
     for r in cfg["routes"]:
         r["origin"], r["destination"] = r["origin"].upper(), r["destination"].upper()
-    cfg.setdefault("horizon_days_min", 60)
-    cfg.setdefault("horizon_days_max", 90)
-    cfg.setdefault("trip_days", 3)
+    cfg.setdefault("collect_days_min", 0)
+    cfg.setdefault("collect_days_max", 90)
+    cfg.setdefault("view_days_min", 60)
+    cfg.setdefault("view_days_max", 90)
     return cfg
 
 
@@ -142,27 +142,17 @@ def _request_json(url: str, token: str) -> dict:
 class Collector:
     def __init__(self, token: str, cfg: dict, today: date):
         self.token = token
-        self.trip = int(cfg["trip_days"])
-        self.dep_from = today + timedelta(days=int(cfg["horizon_days_min"]))
-        self.dep_to = today + timedelta(days=int(cfg["horizon_days_max"]))
+        self.dep_from = today + timedelta(days=int(cfg["collect_days_min"]))
+        self.dep_to = today + timedelta(days=int(cfg["collect_days_max"]))
         self.requests = 0
         self.errors: list[str] = []
-
-    @property
-    def dep_months(self) -> list[date]:
-        return months_between(self.dep_from, self.dep_to)
-
-    @property
-    def ret_months(self) -> list[date]:
-        return months_between(self.dep_from + timedelta(days=self.trip),
-                              self.dep_to + timedelta(days=self.trip))
 
     def query(self, **params) -> list[dict] | None:
         self.requests += 1
         desc = " ".join(f"{k}={v}" for k, v in params.items())
         try:
             rows = api_get(self.token, params)
-            log.info("OK  %-75s → %d", desc, len(rows))
+            log.info("OK  %-60s → %d", desc, len(rows))
             return rows
         except ApiError as e:
             msg = f"{desc}: {e}"
@@ -172,85 +162,27 @@ class Collector:
         finally:
             time.sleep(REQUEST_PAUSE_S)
 
-    def _in_window(self, dep: str | None) -> bool:
-        return bool(dep) and self.dep_from <= date.fromisoformat(dep) <= self.dep_to
-
-    def collect(self, origin: str, destination: str) -> list[dict]:
-        return self.roundtrips(origin, destination) + self.two_oneway(origin, destination)
-
-    # A) туда-обратно одним билетом
-    def roundtrips(self, o: str, dst: str) -> list[dict]:
+    def oneway(self, o: str, dst: str) -> list[dict]:
         out = []
-        for dm in self.dep_months:
-            # месяц возврата — тот же или следующий (поездка короткая,
-            # ограничение API «не больше 30 дней между вылетом и возвратом»
-            # не мешает)
-            for rm in (m for m in self.ret_months if m in (dm, add_months(dm, 1))):
-                for r in self.query(origin=o, destination=dst, departure_at=ym(dm),
-                                    return_at=ym(rm), one_way="false") or []:
-                    dep, ret = iso_date(r.get("departure_at")), iso_date(r.get("return_at"))
-                    if (not self._in_window(dep) or not ret or r.get("price") is None
-                            or (date.fromisoformat(ret) - date.fromisoformat(dep)).days != self.trip):
-                        continue
-                    out.append({
-                        "origin": o, "destination": dst,
-                        "type": "roundtrip",
-                        "departure_date": dep,
-                        "return_date": ret,
-                        "trip_days": self.trip,
-                        "price_eur": round(float(r["price"]), 2),
-                        "airline_out": r.get("airline"),
-                        "airline_back": r.get("airline"),
-                        "transfers": r.get("transfers"),
-                        "transfers_back": r.get("return_transfers"),
-                        "link": r.get("link"),
-                    })
-        return out
-
-    # B) два билета в одну сторону
-    def two_oneway(self, o: str, dst: str) -> list[dict]:
-        def cheapest_per_day(rows: list[dict]) -> dict[str, dict]:
-            best: dict[str, dict] = {}
-            for r in rows:
-                d = iso_date(r.get("departure_at"))
-                if d and r.get("price") is not None and (
-                        d not in best or r["price"] < best[d]["price"]):
-                    best[d] = r
-            return best
-
-        outbound: dict[str, dict] = {}
-        for m in self.dep_months:
-            outbound.update(cheapest_per_day(self.query(
-                origin=o, destination=dst, departure_at=ym(m), one_way="true") or []))
-        inbound: dict[str, dict] = {}
-        for m in self.ret_months:
-            inbound.update(cheapest_per_day(self.query(
-                origin=dst, destination=o, departure_at=ym(m), one_way="true") or []))
-
-        out = []
-        for dep, a in sorted(outbound.items()):
-            if not self._in_window(dep):
-                continue
-            ret = (date.fromisoformat(dep) + timedelta(days=self.trip)).isoformat()
-            b = inbound.get(ret)
-            if not b:
-                continue
-            out.append({
-                "origin": o, "destination": dst,
-                "type": "two_oneway",
-                "departure_date": dep,
-                "return_date": ret,
-                "trip_days": self.trip,
-                "price_eur": round(float(a["price"]) + float(b["price"]), 2),
-                "price_out_eur": round(float(a["price"]), 2),
-                "price_back_eur": round(float(b["price"]), 2),
-                "airline_out": a.get("airline"),
-                "airline_back": b.get("airline"),
-                "transfers": a.get("transfers"),
-                "transfers_back": b.get("transfers"),
-                "link": a.get("link"),
-                "link_back": b.get("link"),
-            })
+        for m in months_between(self.dep_from, self.dep_to):
+            for r in self.query(origin=o, destination=dst, departure_at=ym(m),
+                                one_way="true") or []:
+                dep_at = r.get("departure_at") or ""
+                dep = iso_date(dep_at)
+                if (not dep or r.get("price") is None
+                        or not self.dep_from <= date.fromisoformat(dep) <= self.dep_to):
+                    continue
+                out.append({
+                    "origin": o, "destination": dst,
+                    "departure_date": dep,
+                    "departure_time": dep_at[11:16] or None,
+                    "price_eur": round(float(r["price"]), 2),
+                    "airline": r.get("airline"),
+                    "flight_number": str(r.get("flight_number") or "") or None,
+                    "transfers": r.get("transfers"),
+                    "duration_min": r.get("duration_to") or r.get("duration"),
+                    "link": r.get("link"),
+                })
         return out
 
 
@@ -278,17 +210,15 @@ def merge(existing: list[dict], fresh: list[dict], checked_at: str) -> tuple[lis
         k = record_key(r)
         if k in index:
             index[k]["last_seen_at"] = checked_at
-            for f in ("link", "link_back"):  # ссылки могут обновляться
-                if r.get(f):
-                    index[k][f] = r[f]
+            if r.get("link"):  # ссылки могут обновляться
+                index[k]["link"] = r["link"]
             continue
         rec = {"checked_at": checked_at, **r, "last_seen_at": checked_at}
         index[k] = rec
         existing.append(rec)
         added += 1
-    existing.sort(key=lambda r: (r.get("origin", ""), r.get("destination", ""),
-                                 r["departure_date"], r["type"], r["price_eur"],
-                                 r["checked_at"]))
+    existing.sort(key=lambda r: (r["origin"], r["destination"], r["departure_date"],
+                                 r["price_eur"], r["checked_at"]))
     return existing, added
 
 
@@ -333,10 +263,11 @@ def main() -> int:
         return 3
 
     c = Collector(token, cfg, now.date())
-    log.info("Окно вылета %s … %s, поездка %d дн.", c.dep_from, c.dep_to, c.trip)
+    log.info("Окно вылета %s … %s", c.dep_from, c.dep_to)
     fresh: list[dict] = []
     for route in cfg["routes"]:
-        fresh += c.collect(route["origin"], route["destination"])
+        fresh += c.oneway(route["origin"], route["destination"])
+        fresh += c.oneway(route["destination"], route["origin"])
     failed_all = bool(c.errors) and len(c.errors) == c.requests
 
     status = {
@@ -346,8 +277,6 @@ def main() -> int:
         "errors": c.errors,
         "window": {"from": c.dep_from.isoformat(), "to": c.dep_to.isoformat()},
         "found": len(fresh),
-        "found_roundtrip": sum(r["type"] == "roundtrip" for r in fresh),
-        "found_two_oneway": sum(r["type"] == "two_oneway" for r in fresh),
         "config": cfg,
     }
 
