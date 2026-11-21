@@ -43,11 +43,12 @@
   .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: middle; margin-right: 6px; }
   .dash { display: inline-block; width: 18px; border-top: 2px dashed var(--trend); vertical-align: middle; margin-right: 6px; }
   svg text { fill: var(--muted); font-size: 11px; }
-  .tablewrap { overflow-x: auto; max-height: 420px; overflow-y: auto; }
+  .chart { min-height: 120px; }
+  html { overflow-anchor: none; }
+  .tablewrap { overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
   th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-  th { font-size: 12px; color: var(--muted); font-weight: 600; cursor: pointer; user-select: none;
-       position: sticky; top: 0; background: var(--card); }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; cursor: pointer; user-select: none; }
   td.num, th.num { text-align: right; }
   tr.cheap td:first-child { box-shadow: inset 3px 0 0 var(--good); }
   a { color: var(--out); }
@@ -290,7 +291,14 @@ $("form").addEventListener("submit", e => { e.preventDefault(); show(); });
 $("window").addEventListener("change", show);
 $("tr").addEventListener("change", show);
 $("swap").addEventListener("click", () => { [$("from").value, $("to").value] = [$("to").value, $("from").value]; show(); });
-addEventListener("resize", () => { clearTimeout(window._rz); window._rz = setTimeout(show, 150); });
+// На телефонах «resize» срабатывает при показе/скрытии адресной строки во время
+// прокрутки — перерисовываем только если реально изменилась ширина.
+let lastW = innerWidth;
+addEventListener("resize", () => {
+  if (innerWidth === lastW) return;
+  lastW = innerWidth;
+  clearTimeout(window._rz); window._rz = setTimeout(show, 200);
+});
 
 const tip = $("tip");
 document.addEventListener("mousemove", e => {
