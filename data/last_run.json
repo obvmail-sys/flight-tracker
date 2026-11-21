@@ -1,18 +1,26 @@
 {
-  "checked_at": "2026-11-21T20:28:01Z",
+  "checked_at": "2026-11-21T20:33:16Z",
   "ok": true,
-  "requests": 19,
+  "requests": 7,
   "errors": [],
-  "found": 34,
+  "window": {
+    "from": "2027-01-20",
+    "to": "2027-02-19"
+  },
+  "found": 0,
   "found_roundtrip": 0,
-  "found_two_oneway": 34,
+  "found_two_oneway": 0,
   "config": {
-    "origin": "HEL",
-    "destination": "BCN",
-    "months_ahead": 6,
-    "trip_days_min": 60,
-    "trip_days_max": 90
+    "routes": [
+      {
+        "origin": "HEL",
+        "destination": "BCN"
+      }
+    ],
+    "horizon_days_min": 60,
+    "horizon_days_max": 90,
+    "trip_days": 3
   },
   "added": 0,
-  "total_records": 34
+  "total_records": 0
 }
