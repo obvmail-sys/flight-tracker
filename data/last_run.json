@@ -1,15 +1,13 @@
 {
-  "checked_at": "2026-11-21T20:33:16Z",
+  "checked_at": "2026-11-21T20:37:36Z",
   "ok": true,
-  "requests": 7,
+  "requests": 8,
   "errors": [],
   "window": {
-    "from": "2027-01-20",
+    "from": "2026-11-21",
     "to": "2027-02-19"
   },
-  "found": 0,
-  "found_roundtrip": 0,
-  "found_two_oneway": 0,
+  "found": 60,
   "config": {
     "routes": [
       {
@@ -17,10 +15,11 @@
         "destination": "BCN"
       }
     ],
-    "horizon_days_min": 60,
-    "horizon_days_max": 90,
-    "trip_days": 3
+    "collect_days_min": 0,
+    "collect_days_max": 90,
+    "view_days_min": 60,
+    "view_days_max": 90
   },
-  "added": 0,
-  "total_records": 0
+  "added": 60,
+  "total_records": 60
 }
