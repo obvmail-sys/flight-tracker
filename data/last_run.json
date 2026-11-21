@@ -1,13 +1,13 @@
 {
-  "checked_at": "2026-11-21T20:37:36Z",
+  "checked_at": "2026-11-21T20:57:21Z",
   "ok": true,
-  "requests": 8,
+  "requests": 16,
   "errors": [],
   "window": {
     "from": "2026-11-21",
     "to": "2027-02-19"
   },
-  "found": 60,
+  "found": 119,
   "config": {
     "routes": [
       {
@@ -20,6 +20,6 @@
     "view_days_min": 60,
     "view_days_max": 90
   },
-  "added": 60,
-  "total_records": 60
+  "added": 58,
+  "total_records": 118
 }
