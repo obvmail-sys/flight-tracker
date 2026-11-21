@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
-"""Сбор цен HEL ⇄ BCN из Travelpayouts Aviasales Data API (prices_for_dates).
+"""Сбор цен на авиабилеты из Travelpayouts Aviasales Data API (prices_for_dates).
+
+Для каждого маршрута из config.json проверяются вылеты в окне
+[сегодня + horizon_days_min, сегодня + horizon_days_max] и поездки ровно
+на trip_days дней (возврат = вылет + trip_days):
+  A) туда-обратно одним билетом (one_way=false);
+  B) два билета в одну сторону (one_way=true), сумма цен.
 
 Пишет:
   data/prices.json   — история цен (без дублей)
-  data/last_run.json — статус последнего запуска (время, число запросов, ошибки)
+  data/last_run.json — статус последнего запуска (время, запросы, ошибки)
 
 Токен берётся из переменной окружения TRAVELPAYOUTS_TOKEN.
 Только стандартная библиотека — зависимостей нет.
@@ -37,8 +43,8 @@ RETRIES = 3
 # Поля, по которым запись считается той же самой (цена входит в ключ:
 # новая цена = новая запись истории).
 KEY_FIELDS = (
-    "type", "departure_date", "return_date", "airline_out", "airline_back",
-    "transfers", "transfers_back", "price_eur",
+    "origin", "destination", "type", "departure_date", "return_date",
+    "airline_out", "airline_back", "transfers", "transfers_back", "price_eur",
 )
 
 log = logging.getLogger("fetch")
@@ -56,10 +62,6 @@ def add_months(d: date, n: int) -> date:
     return date(d.year + m // 12, m % 12 + 1, 1)
 
 
-def month_end(d: date) -> date:
-    return add_months(d, 1) - timedelta(days=1)
-
-
 def ym(d: date) -> str:
     return d.strftime("%Y-%m")
 
@@ -73,25 +75,20 @@ def months_between(start: date, end: date) -> list[date]:
     return out
 
 
-def departure_months(today: date, months_ahead: int) -> list[date]:
-    """Текущий месяц и следующие: всего months_ahead месяцев."""
-    return [add_months(today, i) for i in range(months_ahead)]
-
-
-def return_months_for(dep_month: date, dmin: int, dmax: int,
-                      today: date | None = None) -> list[date]:
-    """Месяцы возврата, покрывающие окно поездки dmin..dmax для любого дня
-    месяца вылета. Обычно это 2-й и 3-й месяц после вылета
-    (2027-01 → 2027-03, 2027-04); для вылетов в конце месяца при 90 днях
-    окно может задеть ещё и 1-е число 4-го месяца — его тоже берём."""
-    start = max(dep_month, today) if today else dep_month
-    first = start + timedelta(days=dmin)
-    last = month_end(dep_month) + timedelta(days=dmax)
-    return months_between(first, last)
-
-
 def iso_date(s: str | None) -> str | None:
     return s[:10] if s else None
+
+
+def load_config(path: Path) -> dict:
+    cfg = json.loads(path.read_text("utf-8"))
+    if "routes" not in cfg:  # старый формат: один маршрут в корне
+        cfg["routes"] = [{"origin": cfg["origin"], "destination": cfg["destination"]}]
+    for r in cfg["routes"]:
+        r["origin"], r["destination"] = r["origin"].upper(), r["destination"].upper()
+    cfg.setdefault("horizon_days_min", 60)
+    cfg.setdefault("horizon_days_max", 90)
+    cfg.setdefault("trip_days", 3)
+    return cfg
 
 
 # ---------------------------------------------------------------- API
@@ -145,19 +142,27 @@ def _request_json(url: str, token: str) -> dict:
 class Collector:
     def __init__(self, token: str, cfg: dict, today: date):
         self.token = token
-        self.cfg = cfg
-        self.today = today
-        self.dmin = int(cfg["trip_days_min"])
-        self.dmax = int(cfg["trip_days_max"])
+        self.trip = int(cfg["trip_days"])
+        self.dep_from = today + timedelta(days=int(cfg["horizon_days_min"]))
+        self.dep_to = today + timedelta(days=int(cfg["horizon_days_max"]))
         self.requests = 0
         self.errors: list[str] = []
+
+    @property
+    def dep_months(self) -> list[date]:
+        return months_between(self.dep_from, self.dep_to)
+
+    @property
+    def ret_months(self) -> list[date]:
+        return months_between(self.dep_from + timedelta(days=self.trip),
+                              self.dep_to + timedelta(days=self.trip))
 
     def query(self, **params) -> list[dict] | None:
         self.requests += 1
         desc = " ".join(f"{k}={v}" for k, v in params.items())
         try:
             rows = api_get(self.token, params)
-            log.info("OK  %-70s → %d", desc, len(rows))
+            log.info("OK  %-75s → %d", desc, len(rows))
             return rows
         except ApiError as e:
             msg = f"{desc}: {e}"
@@ -167,52 +172,43 @@ class Collector:
         finally:
             time.sleep(REQUEST_PAUSE_S)
 
-    def _trip_ok(self, dep: str | None, ret: str | None) -> int | None:
-        if not dep or not ret:
-            return None
-        d, r = date.fromisoformat(dep), date.fromisoformat(ret)
-        if d < self.today:
-            return None
-        days = (r - d).days
-        return days if self.dmin <= days <= self.dmax else None
+    def _in_window(self, dep: str | None) -> bool:
+        return bool(dep) and self.dep_from <= date.fromisoformat(dep) <= self.dep_to
+
+    def collect(self, origin: str, destination: str) -> list[dict]:
+        return self.roundtrips(origin, destination) + self.two_oneway(origin, destination)
 
     # A) туда-обратно одним билетом
-    def roundtrips(self) -> list[dict]:
-        o, dst = self.cfg["origin"], self.cfg["destination"]
+    def roundtrips(self, o: str, dst: str) -> list[dict]:
         out = []
-        # API отклоняет запросы, где между последней датой вылета и первой
-        # датой возврата больше 30 дней ("exceeds supported maximum of 30"),
-        # поэтому return_at не передаём: берём все туда-обратно с вылетом в
-        # этом месяце и сами оставляем поездки на trip_days_min..max дней.
-        for dm in departure_months(self.today, int(self.cfg["months_ahead"])):
-            rows = self.query(origin=o, destination=dst, departure_at=ym(dm),
-                              one_way="false")
-            for r in rows or []:
-                dep, ret = iso_date(r.get("departure_at")), iso_date(r.get("return_at"))
-                days = self._trip_ok(dep, ret)
-                if days is None or r.get("price") is None:
-                    continue
-                out.append({
-                    "type": "roundtrip",
-                    "departure_date": dep,
-                    "return_date": ret,
-                    "trip_days": days,
-                    "price_eur": round(float(r["price"]), 2),
-                    "airline_out": r.get("airline"),
-                    "airline_back": r.get("airline"),
-                    "transfers": r.get("transfers"),
-                    "transfers_back": r.get("return_transfers"),
-                    "link": r.get("link"),
-                })
+        for dm in self.dep_months:
+            # месяц возврата — тот же или следующий (поездка короткая,
+            # ограничение API «не больше 30 дней между вылетом и возвратом»
+            # не мешает)
+            for rm in (m for m in self.ret_months if m in (dm, add_months(dm, 1))):
+                for r in self.query(origin=o, destination=dst, departure_at=ym(dm),
+                                    return_at=ym(rm), one_way="false") or []:
+                    dep, ret = iso_date(r.get("departure_at")), iso_date(r.get("return_at"))
+                    if (not self._in_window(dep) or not ret or r.get("price") is None
+                            or (date.fromisoformat(ret) - date.fromisoformat(dep)).days != self.trip):
+                        continue
+                    out.append({
+                        "origin": o, "destination": dst,
+                        "type": "roundtrip",
+                        "departure_date": dep,
+                        "return_date": ret,
+                        "trip_days": self.trip,
+                        "price_eur": round(float(r["price"]), 2),
+                        "airline_out": r.get("airline"),
+                        "airline_back": r.get("airline"),
+                        "transfers": r.get("transfers"),
+                        "transfers_back": r.get("return_transfers"),
+                        "link": r.get("link"),
+                    })
         return out
 
     # B) два билета в одну сторону
-    def two_oneway(self) -> list[dict]:
-        o, dst = self.cfg["origin"], self.cfg["destination"]
-        dep_months = departure_months(self.today, int(self.cfg["months_ahead"]))
-        ret_months = sorted({m for dm in dep_months
-                             for m in return_months_for(dm, self.dmin, self.dmax, self.today)})
-
+    def two_oneway(self, o: str, dst: str) -> list[dict]:
         def cheapest_per_day(rows: list[dict]) -> dict[str, dict]:
             best: dict[str, dict] = {}
             for r in rows:
@@ -223,41 +219,28 @@ class Collector:
             return best
 
         outbound: dict[str, dict] = {}
-        for m in dep_months:
+        for m in self.dep_months:
             outbound.update(cheapest_per_day(self.query(
                 origin=o, destination=dst, departure_at=ym(m), one_way="true") or []))
         inbound: dict[str, dict] = {}
-        for m in ret_months:
+        for m in self.ret_months:
             inbound.update(cheapest_per_day(self.query(
                 origin=dst, destination=o, departure_at=ym(m), one_way="true") or []))
 
-        # Все допустимые пары (вылет + возврат через dmin..dmax дней).
-        pairs = []
-        for dep, a in outbound.items():
-            for ret, b in inbound.items():
-                days = self._trip_ok(dep, ret)
-                if days is not None:
-                    pairs.append((dep, ret, days, a, b))
-
-        # Чтобы файл не разрастался на десятки тысяч комбинаций, оставляем
-        # лучшую пару для каждой даты вылета и для каждой даты возврата.
-        best_dep: dict[str, tuple] = {}
-        best_ret: dict[str, tuple] = {}
-        for p in pairs:
-            total = p[3]["price"] + p[4]["price"]
-            if p[0] not in best_dep or total < best_dep[p[0]][0]:
-                best_dep[p[0]] = (total, p)
-            if p[1] not in best_ret or total < best_ret[p[1]][0]:
-                best_ret[p[1]] = (total, p)
-        chosen = {(p[0], p[1]): p for _, p in (*best_dep.values(), *best_ret.values())}
-
         out = []
-        for dep, ret, days, a, b in chosen.values():
+        for dep, a in sorted(outbound.items()):
+            if not self._in_window(dep):
+                continue
+            ret = (date.fromisoformat(dep) + timedelta(days=self.trip)).isoformat()
+            b = inbound.get(ret)
+            if not b:
+                continue
             out.append({
+                "origin": o, "destination": dst,
                 "type": "two_oneway",
                 "departure_date": dep,
                 "return_date": ret,
-                "trip_days": days,
+                "trip_days": self.trip,
                 "price_eur": round(float(a["price"]) + float(b["price"]), 2),
                 "price_out_eur": round(float(a["price"]), 2),
                 "price_back_eur": round(float(b["price"]), 2),
@@ -295,8 +278,7 @@ def merge(existing: list[dict], fresh: list[dict], checked_at: str) -> tuple[lis
         k = record_key(r)
         if k in index:
             index[k]["last_seen_at"] = checked_at
-            # ссылки могут обновляться — держим актуальные
-            for f in ("link", "link_back"):
+            for f in ("link", "link_back"):  # ссылки могут обновляться
                 if r.get(f):
                     index[k][f] = r[f]
             continue
@@ -304,8 +286,9 @@ def merge(existing: list[dict], fresh: list[dict], checked_at: str) -> tuple[lis
         index[k] = rec
         existing.append(rec)
         added += 1
-    existing.sort(key=lambda r: (r["departure_date"], r["return_date"], r["type"],
-                                 r["price_eur"], r["checked_at"]))
+    existing.sort(key=lambda r: (r.get("origin", ""), r.get("destination", ""),
+                                 r["departure_date"], r["type"], r["price_eur"],
+                                 r["checked_at"]))
     return existing, added
 
 
@@ -339,7 +322,7 @@ def main() -> int:
         log.error("TRAVELPAYOUTS_TOKEN не задан")
         return 2
 
-    cfg = json.loads(CONFIG_PATH.read_text("utf-8"))
+    cfg = load_config(CONFIG_PATH)
     now = datetime.now(timezone.utc).replace(microsecond=0)
     checked_at = now.isoformat().replace("+00:00", "Z")
 
@@ -350,14 +333,18 @@ def main() -> int:
         return 3
 
     c = Collector(token, cfg, now.date())
-    fresh = c.roundtrips() + c.two_oneway()
-    failed_all = c.errors and len(c.errors) == c.requests
+    log.info("Окно вылета %s … %s, поездка %d дн.", c.dep_from, c.dep_to, c.trip)
+    fresh: list[dict] = []
+    for route in cfg["routes"]:
+        fresh += c.collect(route["origin"], route["destination"])
+    failed_all = bool(c.errors) and len(c.errors) == c.requests
 
     status = {
         "checked_at": checked_at,
         "ok": not c.errors,
         "requests": c.requests,
         "errors": c.errors,
+        "window": {"from": c.dep_from.isoformat(), "to": c.dep_to.isoformat()},
         "found": len(fresh),
         "found_roundtrip": sum(r["type"] == "roundtrip" for r in fresh),
         "found_two_oneway": sum(r["type"] == "two_oneway" for r in fresh),

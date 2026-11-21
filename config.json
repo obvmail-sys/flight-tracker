@@ -1,7 +1,8 @@
 {
-  "origin": "HEL",
-  "destination": "BCN",
-  "months_ahead": 6,
-  "trip_days_min": 60,
-  "trip_days_max": 90
+  "routes": [
+    { "origin": "HEL", "destination": "BCN" }
+  ],
+  "horizon_days_min": 60,
+  "horizon_days_max": 90,
+  "trip_days": 3
 }

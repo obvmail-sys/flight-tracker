@@ -3,134 +3,128 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>HEL ⇄ BCN цены</title>
+<title>Цены на авиабилеты</title>
 <style>
   :root {
     --bg: #f6f7f9; --card: #fff; --text: #1b1f24; --muted: #667085; --line: #e3e6ea;
-    --accent: #2563eb; --accent2: #d9480f; --good: #15803d; --bad: #b91c1c;
+    --accent: #2563eb; --accent2: #d9480f; --trend: #1b1f24; --good: #15803d; --bad: #b91c1c;
   }
   @media (prefers-color-scheme: dark) {
     :root { --bg: #0f1216; --card: #171b21; --text: #e6e8eb; --muted: #98a2b3; --line: #2a3038;
-            --accent: #60a5fa; --accent2: #fb923c; --good: #4ade80; --bad: #f87171; }
+            --accent: #60a5fa; --accent2: #fb923c; --trend: #e6e8eb; --good: #4ade80; --bad: #f87171; }
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text);
          font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 48px; }
+  main { max-width: 1000px; margin: 0 auto; padding: 20px 16px 48px; }
   h1 { font-size: 24px; margin: 0 0 4px; }
   h2 { font-size: 17px; margin: 0 0 12px; }
   .muted { color: var(--muted); }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px;
           padding: 16px; margin-top: 16px; }
-  .status { font-size: 13px; }
-  .status.err { color: var(--bad); }
-  .best { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
-  .best .card { margin: 0; }
-  .big { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .tag { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 99px;
-         border: 1px solid var(--line); color: var(--muted); }
-  .tag.rt { color: var(--accent); border-color: currentColor; }
-  .tag.ow { color: var(--accent2); border-color: currentColor; }
-  .filters { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: end; }
-  .filters label { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); gap: 4px; }
-  select, input { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line);
-                  border-radius: 8px; padding: 6px 8px; min-width: 0; }
-  input[type=number] { width: 80px; }
+  form { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+  label { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); gap: 4px; }
+  input, select { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line);
+                  border-radius: 8px; padding: 8px 10px; min-width: 0; }
+  input.code { width: 96px; text-transform: uppercase; font-weight: 600; letter-spacing: .05em; }
+  button { font: inherit; border-radius: 8px; padding: 8px 14px; cursor: pointer;
+           border: 1px solid var(--line); background: var(--card); color: var(--text); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .status { font-size: 13px; margin-top: 10px; }
+  .err { color: var(--bad); }
+  .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+  .summary .card { margin: 0; }
+  .big { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .down { color: var(--good); } .up { color: var(--bad); }
+  .tag { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 99px; border: 1px solid currentColor; }
+  .tag.rt { color: var(--accent); } .tag.ow { color: var(--accent2); }
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; margin-bottom: 6px; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: middle; margin-right: 6px; }
+  .dash { display: inline-block; width: 18px; border-top: 2px dashed var(--trend); vertical-align: middle; margin-right: 6px; }
+  svg text { fill: var(--muted); font-size: 11px; }
   .tablewrap { overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
   th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
   th { font-size: 12px; color: var(--muted); font-weight: 600; cursor: pointer; user-select: none; }
-  th[data-sort]:hover { color: var(--text); }
   td.num, th.num { text-align: right; }
-  .down { color: var(--good); } .up { color: var(--bad); }
   a { color: var(--accent); }
-  svg text { fill: var(--muted); font-size: 11px; }
-  .legend { display: flex; gap: 16px; font-size: 13px; margin-bottom: 6px; }
-  .legend i { display: inline-block; width: 12px; height: 3px; vertical-align: middle; margin-right: 6px; }
   .tip { position: fixed; pointer-events: none; background: var(--card); border: 1px solid var(--line);
          border-radius: 8px; padding: 6px 8px; font-size: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.15);
          display: none; z-index: 10; }
-  .more { margin-top: 10px; }
-  button { font: inherit; color: var(--accent); background: none; border: 1px solid var(--line);
-           border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+  #result[hidden] { display: none; }
 </style>
 </head>
 <body>
 <main>
-  <h1>Хельсинки ⇄ Барселона</h1>
-  <div class="muted" id="sub">Туда-обратно, поездка 60–90 дней · цены Aviasales (кэш 2–7 дней), EUR</div>
-  <div class="status muted" id="status">Загрузка…</div>
-
-  <div class="best" style="margin-top:16px" id="best"></div>
+  <h1>Цены на авиабилеты</h1>
+  <div class="muted" id="sub">Туда-обратно · данные Aviasales (кэш 2–7 дней), EUR</div>
 
   <section class="card">
-    <h2>Фильтры</h2>
-    <div class="filters">
-      <label>Тип
-        <select id="f-type">
-          <option value="all">Все</option>
+    <form id="form">
+      <label>Откуда <input class="code" id="from" list="codes" maxlength="3" required></label>
+      <button type="button" id="swap" title="Поменять местами">⇄</button>
+      <label>Куда <input class="code" id="to" list="codes" maxlength="3" required></label>
+      <label>Билеты
+        <select id="type">
+          <option value="all">Все варианты</option>
           <option value="roundtrip">Туда-обратно одним билетом</option>
           <option value="two_oneway">Два билета в одну сторону</option>
         </select>
       </label>
-      <label>Месяц вылета <select id="f-month"><option value="">Любой</option></select></label>
-      <label>Дней от <input type="number" id="f-dmin"></label>
-      <label>до <input type="number" id="f-dmax"></label>
-      <label>Пересадок (макс., в каждую сторону)
-        <select id="f-tr"><option value="">Любые</option><option value="0">Только прямые</option><option value="1">≤ 1</option></select>
-      </label>
-    </div>
+      <button class="primary" type="submit">Показать</button>
+      <datalist id="codes"></datalist>
+    </form>
+    <div class="status muted" id="status">Загрузка…</div>
   </section>
 
-  <section class="card">
-    <h2>Самая низкая цена по дате вылета</h2>
-    <div class="legend"><span><i style="background:var(--accent)"></i>Туда-обратно</span>
-      <span><i style="background:var(--accent2)"></i>Два билета</span></div>
-    <div id="chart-dates"></div>
-  </section>
+  <div id="result" hidden>
+    <div class="summary" style="margin-top:16px" id="summary"></div>
 
-  <section class="card">
-    <h2>Минимальная цена во времени</h2>
-    <div class="muted" style="font-size:13px;margin-bottom:6px">Как менялась лучшая найденная цена (с учётом фильтров) от проверки к проверке</div>
-    <div id="chart-history"></div>
-  </section>
+    <section class="card">
+      <h2>Цена по дате вылета</h2>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--accent)"></i>Туда-обратно</span>
+        <span><i class="dot" style="background:var(--accent2)"></i>Два билета</span>
+        <span><i class="dash"></i>Линейный тренд</span>
+      </div>
+      <div id="chart"></div>
+    </section>
 
-  <section class="card">
-    <h2>Актуальные варианты <span class="muted" id="count"></span></h2>
-    <div class="tablewrap">
-      <table>
-        <thead><tr>
-          <th data-sort="price_eur" class="num">Цена €</th>
-          <th data-sort="change" class="num">Изм.</th>
-          <th data-sort="type">Тип</th>
-          <th data-sort="departure_date">Вылет</th>
-          <th data-sort="return_date">Возврат</th>
-          <th data-sort="trip_days" class="num">Дней</th>
-          <th>Авиакомпании</th>
-          <th data-sort="transfers" class="num">Пересадки</th>
-          <th>Ссылка</th>
-        </tr></thead>
-        <tbody id="rows"></tbody>
-      </table>
-    </div>
-    <div class="more"><button id="more" hidden>Показать ещё</button></div>
-  </section>
+    <section class="card">
+      <h2>Таблица цен <span class="muted" id="count"></span></h2>
+      <div class="tablewrap">
+        <table>
+          <thead><tr>
+            <th data-sort="departure_date">Вылет</th>
+            <th data-sort="return_date">Возврат</th>
+            <th data-sort="price_eur" class="num">Цена €</th>
+            <th data-sort="change" class="num">Изм.</th>
+            <th data-sort="type">Тип</th>
+            <th>Авиакомпании</th>
+            <th class="num">Пересадки</th>
+            <th>Купить</th>
+          </tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
 </main>
 <div class="tip" id="tip"></div>
 
 <script>
 const AVIASALES = "https://www.aviasales.com";
+const DAY = 864e5;
 const $ = id => document.getElementById(id);
-const fmtEur = v => "€" + Math.round(v).toLocaleString("ru-RU");
-const fmtDate = s => new Date(s + "T00:00:00").toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "2-digit" });
-const fmtDT = s => new Date(s).toLocaleString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-const typeTag = t => t === "roundtrip" ? '<span class="tag rt">туда-обратно</span>' : '<span class="tag ow">2 билета</span>';
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const link = l => l ? `<a href="${esc(AVIASALES + l)}" target="_blank" rel="noopener">→</a>` : "";
+const fmtEur = v => "€" + Math.round(v).toLocaleString("ru-RU");
+const fmtDate = s => new Date(s + "T00:00:00").toLocaleDateString("ru-RU", { weekday: "short", day: "numeric", month: "short" });
+const fmtDT = s => new Date(s).toLocaleString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+const link = l => l ? `<a href="${esc(AVIASALES + l)}" target="_blank" rel="noopener">Aviasales →</a>` : "";
+const typeTag = t => t === "roundtrip" ? '<span class="tag rt">туда-обратно</span>' : '<span class="tag ow">2 билета</span>';
+const COLORS = { roundtrip: "var(--accent)", two_oneway: "var(--accent2)" };
 
-let ALL = [], CURRENT = [], LAST = null, sortKey = "price_eur", sortDir = 1, shown = 50;
-
-const tripKey = r => `${r.type}|${r.departure_date}|${r.return_date}`;
+let ALL = [], LAST = null, ROUTES = [], sortKey = "departure_date", sortDir = 1;
 
 async function load() {
   const bust = "?t=" + Date.now();
@@ -138,166 +132,152 @@ async function load() {
     fetch("data/prices.json" + bust).then(r => r.json()),
     fetch("data/last_run.json" + bust).then(r => r.ok ? r.json() : null).catch(() => null),
   ]);
-  ALL = prices;
+  ALL = prices.map(r => ({ origin: "HEL", destination: "BCN", ...r }));
   LAST = last;
-  const latest = ALL.reduce((m, r) => (r.last_seen_at > m ? r.last_seen_at : m), "");
-  const today = new Date().toISOString().slice(0, 10);
-  CURRENT = ALL.filter(r => r.last_seen_at === latest && r.departure_date >= today);
+  ROUTES = last?.config?.routes || [...new Map(ALL.map(r => [r.origin + r.destination, { origin: r.origin, destination: r.destination }])).values()];
 
-  // изменение цены по сравнению с предыдущей известной ценой той же поездки
-  const byTrip = {};
-  for (const r of ALL) (byTrip[tripKey(r)] ||= []).push(r);
-  for (const r of CURRENT) {
-    const prev = byTrip[tripKey(r)]
-      .filter(x => x !== r && x.checked_at < r.checked_at)
+  const codes = [...new Set(ROUTES.flatMap(r => [r.origin, r.destination]))].sort();
+  $("codes").innerHTML = codes.map(c => `<option value="${c}">`).join("");
+  if (last?.config?.trip_days) {
+    $("sub").textContent = `Туда-обратно на ${last.config.trip_days} дн. · вылет через ${last.config.horizon_days_min}–${last.config.horizon_days_max} дней · данные Aviasales (кэш 2–7 дней), EUR`;
+  }
+
+  const p = new URLSearchParams(location.search);
+  $("from").value = (p.get("from") || ROUTES[0]?.origin || "").toUpperCase();
+  $("to").value = (p.get("to") || ROUTES[0]?.destination || "").toUpperCase();
+  $("type").value = p.get("type") || "all";
+  show();
+}
+
+function show() {
+  const from = $("from").value.trim().toUpperCase(), to = $("to").value.trim().toUpperCase();
+  const type = $("type").value;
+  history.replaceState(null, "", `?from=${from}&to=${to}${type !== "all" ? "&type=" + type : ""}`);
+
+  const st = $("status"); st.classList.remove("err");
+  const tracked = ROUTES.some(r => r.origin === from && r.destination === to);
+  if (!tracked) {
+    $("result").hidden = true;
+    st.classList.add("err");
+    st.innerHTML = `Маршрут ${esc(from)} → ${esc(to)} не отслеживается. Отслеживаемые: ${ROUTES.map(r => `<a href="?from=${r.origin}&to=${r.destination}">${r.origin} → ${r.destination}</a>`).join(", ")}.
+      Чтобы добавить маршрут, допишите его в <code>routes</code> в config.json — данные появятся после следующего сбора (каждые 4 часа).`;
+    return;
+  }
+
+  const route = ALL.filter(r => r.origin === from && r.destination === to);
+  const latest = route.reduce((m, r) => (r.last_seen_at > m ? r.last_seen_at : m), "");
+  const today = new Date().toISOString().slice(0, 10);
+  // актуальные цены — найденные при последней проверке
+  const current = route.filter(r => r.last_seen_at === latest && r.departure_date >= today);
+  for (const r of current) {
+    const prev = route.filter(x => x !== r && x.type === r.type && x.departure_date === r.departure_date && x.checked_at < r.checked_at)
       .sort((a, b) => b.last_seen_at.localeCompare(a.last_seen_at))[0];
     r.change = prev ? r.price_eur - prev.price_eur : 0;
   }
+  const rows = current.filter(r => type === "all" || r.type === type);
 
-  if (last) {
-    const cfg = last.config || {};
-    if (cfg.trip_days_min) {
-      $("sub").textContent = `${cfg.origin} ⇄ ${cfg.destination}, поездка ${cfg.trip_days_min}–${cfg.trip_days_max} дней · цены Aviasales (кэш 2–7 дней), EUR`;
-      $("f-dmin").value = cfg.trip_days_min; $("f-dmax").value = cfg.trip_days_max;
-    }
-    const st = $("status");
-    st.textContent = `Последняя проверка: ${fmtDT(last.checked_at)} · запросов ${last.requests}, найдено ${last.found}`
-      + (last.errors?.length ? ` · ошибок: ${last.errors.length}` : "");
-    if (last.errors?.length) { st.classList.add("err"); st.title = last.errors.join("\n"); }
-  } else {
-    $("status").textContent = latest ? `Данные на ${fmtDT(latest)}` : "Данных пока нет";
-  }
+  let s = LAST ? `Последняя проверка: ${fmtDT(LAST.checked_at)}` : (latest ? `Данные на ${fmtDT(latest)}` : "");
+  if (LAST?.window) s += ` · окно вылета ${fmtDate(LAST.window.from)} – ${fmtDate(LAST.window.to)}`;
+  if (LAST?.errors?.length) { s += ` · ошибок API: ${LAST.errors.length}`; st.title = LAST.errors.join("\n"); }
+  st.textContent = s;
 
-  const months = [...new Set(CURRENT.map(r => r.departure_date.slice(0, 7)))].sort();
-  for (const m of months) {
-    const o = document.createElement("option");
-    o.value = m;
-    o.textContent = new Date(m + "-01T00:00:00").toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
-    $("f-month").append(o);
-  }
-  render();
-}
-
-function passes(r) {
-  const t = $("f-type").value, m = $("f-month").value;
-  const dmin = +$("f-dmin").value || 0, dmax = +$("f-dmax").value || 9999;
-  const tr = $("f-tr").value;
-  if (t !== "all" && r.type !== t) return false;
-  if (m && !r.departure_date.startsWith(m)) return false;
-  if (r.trip_days < dmin || r.trip_days > dmax) return false;
-  if (tr !== "" && (Math.max(r.transfers ?? 9, r.transfers_back ?? r.transfers ?? 9) > +tr)) return false;
-  return true;
-}
-
-function render() {
-  const rows = CURRENT.filter(passes);
-  renderBest(rows);
-  renderDates(rows);
-  renderHistory();
+  $("result").hidden = false;
+  renderSummary(rows);
+  renderChart(rows);
   renderTable(rows);
 }
 
-function renderBest(rows) {
-  const box = $("best");
-  const pick = t => rows.filter(r => r.type === t).sort((a, b) => a.price_eur - b.price_eur)[0];
-  const card = (title, r) => `<div class="card"><div class="muted">${title}</div>` + (r
-    ? `<div class="big">${fmtEur(r.price_eur)}</div>
-       <div>${fmtDate(r.departure_date)} → ${fmtDate(r.return_date)} · ${r.trip_days} дн.</div>
-       <div class="muted" style="font-size:13px">${esc(r.airline_out)}${r.airline_back !== r.airline_out ? " / " + esc(r.airline_back) : ""}
-       · пересадок ${r.transfers ?? "?"}/${r.transfers_back ?? "?"}
-       ${r.type === "two_oneway" ? `· ${fmtEur(r.price_out_eur)} + ${fmtEur(r.price_back_eur)}` : ""} ${link(r.link)}</div>`
-    : `<div class="big muted">—</div><div class="muted">нет вариантов</div>`) + `</div>`;
-  box.innerHTML = card("Лучшее туда-обратно", pick("roundtrip")) + card("Лучшее двумя билетами", pick("two_oneway"));
+// Линейная регрессия (МНК) по самой низкой цене на каждую дату вылета.
+function trend(rows) {
+  const best = {};
+  for (const r of rows) if (!best[r.departure_date] || r.price_eur < best[r.departure_date]) best[r.departure_date] = r.price_eur;
+  const pts = Object.entries(best).map(([d, y]) => ({ x: +new Date(d + "T00:00:00") / DAY, y }));
+  if (pts.length < 2) return null;
+  const n = pts.length, mx = pts.reduce((a, p) => a + p.x, 0) / n, my = pts.reduce((a, p) => a + p.y, 0) / n;
+  const sxx = pts.reduce((a, p) => a + (p.x - mx) ** 2, 0);
+  if (!sxx) return null;
+  const k = pts.reduce((a, p) => a + (p.x - mx) * (p.y - my), 0) / sxx; // €/день
+  return { k, b: my - k * mx, n };
 }
 
-// ---------- простые SVG-графики
-function lineChart(el, series, { xType = "date", height = 240 } = {}) {
-  const pts = series.flatMap(s => s.points);
-  if (!pts.length) { el.innerHTML = '<div class="muted">Нет данных</div>'; return; }
-  const W = Math.max(320, el.clientWidth || 800), H = height, P = { l: 48, r: 12, t: 10, b: 26 };
-  const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
-  let x0 = Math.min(...xs), x1 = Math.max(...xs); if (x0 === x1) { x0 -= 864e5; x1 += 864e5; }
-  let y0 = Math.min(...ys), y1 = Math.max(...ys); const pad = (y1 - y0) * 0.1 || 20; y0 = Math.max(0, y0 - pad); y1 += pad;
+function renderSummary(rows) {
+  const best = [...rows].sort((a, b) => a.price_eur - b.price_eur)[0];
+  const t = trend(rows);
+  let tr = `<div class="big muted">—</div><div class="muted">нужно хотя бы 2 даты</div>`;
+  if (t) {
+    const per10 = t.k * 10, cls = per10 < -0.5 ? "down" : per10 > 0.5 ? "up" : "muted";
+    const word = per10 < -0.5 ? "к дальним датам дешевеет" : per10 > 0.5 ? "к дальним датам дорожает" : "цена ровная";
+    tr = `<div class="big ${cls}">${per10 > 0 ? "+" : per10 < 0 ? "−" : ""}€${Math.abs(per10).toFixed(1)}</div>
+          <div class="muted">за каждые 10 дней · ${word} (по ${t.n} датам)</div>`;
+  }
+  $("summary").innerHTML = `
+    <div class="card"><div class="muted">Самая низкая цена</div>` + (best
+      ? `<div class="big">${fmtEur(best.price_eur)}</div>
+         <div>${fmtDate(best.departure_date)} → ${fmtDate(best.return_date)}</div>
+         <div class="muted" style="font-size:13px">${typeTag(best.type)} ${link(best.link)}</div>`
+      : `<div class="big muted">—</div><div class="muted">нет данных</div>`) + `</div>
+    <div class="card"><div class="muted">Тренд цены</div>${tr}</div>
+    <div class="card"><div class="muted">Вариантов</div><div class="big">${rows.length}</div>
+      <div class="muted">${new Set(rows.map(r => r.departure_date)).size} дат вылета</div></div>`;
+}
+
+function renderChart(rows) {
+  const el = $("chart");
+  if (!rows.length) { el.innerHTML = '<div class="muted">Для этого маршрута в окне дат пока нет цен в кэше Aviasales.</div>'; return; }
+  const W = Math.max(320, el.clientWidth || 800), H = 280, P = { l: 48, r: 14, t: 12, b: 28 };
+  const xs = rows.map(r => +new Date(r.departure_date + "T00:00:00")), ys = rows.map(r => r.price_eur);
+  let x0 = Math.min(...xs) - DAY, x1 = Math.max(...xs) + DAY;
+  if (LAST?.window) { x0 = Math.min(x0, +new Date(LAST.window.from + "T00:00:00")); x1 = Math.max(x1, +new Date(LAST.window.to + "T00:00:00")); }
+  let y0 = Math.min(...ys), y1 = Math.max(...ys); const pad = (y1 - y0) * 0.15 || 20; y0 = Math.max(0, y0 - pad); y1 += pad;
   const X = x => P.l + (x - x0) / (x1 - x0) * (W - P.l - P.r);
   const Y = y => H - P.b - (y - y0) / (y1 - y0) * (H - P.t - P.b);
   let g = "";
   for (let i = 0; i <= 4; i++) {
-    const v = y0 + (y1 - y0) * i / 4, y = Y(v);
-    g += `<line x1="${P.l}" x2="${W - P.r}" y1="${y}" y2="${y}" stroke="var(--line)"/><text x="${P.l - 6}" y="${y + 4}" text-anchor="end">€${Math.round(v)}</text>`;
+    const v = y0 + (y1 - y0) * i / 4;
+    g += `<line x1="${P.l}" x2="${W - P.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/><text x="${P.l - 6}" y="${Y(v) + 4}" text-anchor="end">€${Math.round(v)}</text>`;
   }
-  const nT = Math.min(6, Math.floor(W / 120));
+  const nT = Math.max(2, Math.min(7, Math.floor(W / 110)));
   for (let i = 0; i <= nT; i++) {
-    const v = x0 + (x1 - x0) * i / nT, d = new Date(v);
-    const lab = xType === "date" ? d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" })
-                                 : d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" }) + " " + d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
-    g += `<text x="${X(v)}" y="${H - 6}" text-anchor="middle">${lab}</text>`;
+    const v = x0 + (x1 - x0) * i / nT;
+    g += `<text x="${X(v)}" y="${H - 8}" text-anchor="middle">${new Date(v).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}</text>`;
   }
-  for (const s of series) {
-    if (!s.points.length) continue;
-    const ps = [...s.points].sort((a, b) => a.x - b.x);
-    g += `<polyline fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round" points="${ps.map(p => `${X(p.x)},${Y(p.y)}`).join(" ")}"/>`;
-    g += ps.map(p => `<circle cx="${X(p.x)}" cy="${Y(p.y)}" r="${ps.length > 60 ? 2.5 : 3.5}" fill="${s.color}" data-tip="${esc(p.tip)}"/>`).join("");
+  const t = trend(rows);
+  if (t) {
+    const ya = t.k * (x0 / DAY) + t.b, yb = t.k * (x1 / DAY) + t.b;
+    g += `<line x1="${X(x0)}" y1="${Y(ya)}" x2="${X(x1)}" y2="${Y(yb)}" stroke="var(--trend)" stroke-width="1.5" stroke-dasharray="6 5"/>`;
   }
-  el.innerHTML = `<svg width="100%" viewBox="0 0 ${W} ${H}" role="img">${g}</svg>`;
-}
-
-function renderDates(rows) {
-  const series = [["roundtrip", "var(--accent)"], ["two_oneway", "var(--accent2)"]].map(([t, color]) => {
-    const best = {};
-    for (const r of rows) if (r.type === t && (!best[r.departure_date] || r.price_eur < best[r.departure_date].price_eur)) best[r.departure_date] = r;
-    return { color, points: Object.values(best).map(r => ({
-      x: +new Date(r.departure_date + "T00:00:00"), y: r.price_eur,
-      tip: `${fmtDate(r.departure_date)} → ${fmtDate(r.return_date)} (${r.trip_days} дн.): ${fmtEur(r.price_eur)}` })) };
-  });
-  lineChart($("chart-dates"), series);
-}
-
-function renderHistory() {
-  // запись «действовала» в промежутке [checked_at, last_seen_at]
-  const runs = [...new Set(ALL.flatMap(r => [r.checked_at, r.last_seen_at]))].sort();
-  const today = new Date().toISOString().slice(0, 10);
-  const rel = ALL.filter(r => passes(r) && r.departure_date >= today);
-  const series = [["roundtrip", "var(--accent)"], ["two_oneway", "var(--accent2)"]].map(([t, color]) => {
-    const recs = rel.filter(r => r.type === t);
-    const points = [];
-    for (const run of runs) {
-      let best = null;
-      for (const r of recs) if (r.checked_at <= run && run <= r.last_seen_at && (!best || r.price_eur < best.price_eur)) best = r;
-      if (best) points.push({ x: +new Date(run), y: best.price_eur,
-        tip: `${fmtDT(run)}: ${fmtEur(best.price_eur)} (${fmtDate(best.departure_date)} → ${fmtDate(best.return_date)})` });
-    }
-    return { color, points };
-  });
-  lineChart($("chart-history"), series, { xType: "datetime", height: 200 });
+  for (const r of rows) {
+    const tip = `${fmtDate(r.departure_date)} → ${fmtDate(r.return_date)}: ${fmtEur(r.price_eur)} (${r.type === "roundtrip" ? "туда-обратно" : "2 билета"})`;
+    g += `<circle cx="${X(+new Date(r.departure_date + "T00:00:00"))}" cy="${Y(r.price_eur)}" r="5" fill="${COLORS[r.type]}" fill-opacity=".85" data-tip="${esc(tip)}"/>`;
+  }
+  el.innerHTML = `<svg width="100%" viewBox="0 0 ${W} ${H}" role="img" aria-label="Цена по дате вылета">${g}</svg>`;
 }
 
 function renderTable(rows) {
-  rows.sort((a, b) => {
+  rows = [...rows].sort((a, b) => {
     const va = a[sortKey], vb = b[sortKey];
     return (typeof va === "number" ? va - vb : String(va).localeCompare(String(vb))) * sortDir || a.price_eur - b.price_eur;
   });
   $("count").textContent = `(${rows.length})`;
-  $("rows").innerHTML = rows.slice(0, shown).map(r => `<tr>
+  $("rows").innerHTML = rows.map(r => `<tr>
+    <td>${fmtDate(r.departure_date)}</td>
+    <td>${fmtDate(r.return_date)}</td>
     <td class="num"><b>${fmtEur(r.price_eur)}</b>${r.type === "two_oneway" ? `<div class="muted" style="font-size:12px">${fmtEur(r.price_out_eur)} + ${fmtEur(r.price_back_eur)}</div>` : ""}</td>
     <td class="num ${r.change < 0 ? "down" : r.change > 0 ? "up" : "muted"}">${r.change ? (r.change > 0 ? "+" : "−") + Math.abs(Math.round(r.change)) : "·"}</td>
     <td>${typeTag(r.type)}</td>
-    <td>${fmtDate(r.departure_date)}</td>
-    <td>${fmtDate(r.return_date)}</td>
-    <td class="num">${r.trip_days}</td>
     <td>${esc(r.airline_out)}${r.airline_back && r.airline_back !== r.airline_out ? " / " + esc(r.airline_back) : ""}</td>
     <td class="num">${r.transfers ?? "?"} / ${r.transfers_back ?? "?"}</td>
-    <td>${link(r.link)}${r.link_back ? " " + link(r.link_back) : ""}</td>
-  </tr>`).join("") || `<tr><td colspan="9" class="muted">Нет вариантов под фильтры</td></tr>`;
-  $("more").hidden = rows.length <= shown;
+    <td>${link(r.link)}</td>
+  </tr>`).join("") || `<tr><td colspan="8" class="muted">Нет цен</td></tr>`;
 }
 
+$("form").addEventListener("submit", e => { e.preventDefault(); show(); });
+$("type").addEventListener("change", show);
+$("swap").addEventListener("click", () => { [$("from").value, $("to").value] = [$("to").value, $("from").value]; show(); });
 document.querySelectorAll("th[data-sort]").forEach(th => th.addEventListener("click", () => {
-  const k = th.dataset.sort;
-  sortDir = sortKey === k ? -sortDir : 1; sortKey = k; render();
+  const k = th.dataset.sort; sortDir = sortKey === k ? -sortDir : 1; sortKey = k; show();
 }));
-["f-type", "f-month", "f-dmin", "f-dmax", "f-tr"].forEach(id => $(id).addEventListener("input", () => { shown = 50; render(); }));
-$("more").addEventListener("click", () => { shown += 100; render(); });
-addEventListener("resize", () => { clearTimeout(window._rz); window._rz = setTimeout(render, 150); });
+addEventListener("resize", () => { clearTimeout(window._rz); window._rz = setTimeout(show, 150); });
 
 const tip = $("tip");
 document.addEventListener("mousemove", e => {
