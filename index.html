@@ -31,13 +31,6 @@
   button { font: inherit; border-radius: 8px; padding: 8px 14px; cursor: pointer;
            border: 1px solid var(--line); background: var(--card); color: var(--text); }
   button.primary { background: var(--out); border-color: var(--out); color: #fff; font-weight: 600; }
-  .refresh { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-top: 12px;
-             padding-top: 12px; border-top: 1px solid var(--line); font-size: 13px; }
-  .refresh button:disabled { opacity: .6; cursor: default; }
-  #tokenBox { margin-top: 10px; font-size: 13px; }
-  #tokenBox ol { margin: 6px 0 10px; padding-left: 20px; }
-  #tokenBox .row { display: flex; gap: 8px; flex-wrap: wrap; }
-  #tokenBox input { flex: 1 1 220px; }
   .status { font-size: 13px; margin-top: 10px; }
   .err { color: var(--bad); }
   .head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
@@ -85,27 +78,6 @@
       <datalist id="codes"></datalist>
     </form>
     <div class="status muted" id="status">Загрузка…</div>
-    <div class="refresh">
-      <button type="button" id="runBtn">🔄 Обновить сейчас</button>
-      <span class="muted" id="runMsg">Автопроверка каждые 4 часа</span>
-      <a id="ghLink" target="_blank" rel="noopener">Запустить на GitHub</a>
-      <a href="#" id="tokenToggle">Настроить ключ</a>
-    </div>
-    <div id="tokenBox" hidden>
-      <div>Чтобы кнопка запускала проверку, нужен личный ключ GitHub (один раз). Он хранится только в этом браузере.</div>
-      <ol>
-        <li>Откройте <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens/new</a></li>
-        <li>Token name — любое, Expiration — например 1 год</li>
-        <li>Repository access → <b>Only select repositories</b> → <span class="repoName"></span></li>
-        <li>Permissions → Repository permissions → <b>Actions: Read and write</b></li>
-        <li><b>Generate token</b>, скопируйте и вставьте сюда:</li>
-      </ol>
-      <div class="row">
-        <input type="password" id="tokenInput" placeholder="github_pat_…" autocomplete="off">
-        <button type="button" class="primary" id="tokenSave">Сохранить</button>
-        <button type="button" id="tokenDel">Удалить ключ</button>
-      </div>
-    </div>
   </section>
 
   <div id="dirs"></div>
@@ -337,75 +309,6 @@ document.addEventListener("mousemove", e => {
   tip.style.top = (e.clientY + 12) + "px";
 });
 
-
-// ---------- кнопка «Обновить сейчас»: запуск GitHub Actions (workflow_dispatch)
-const REPO = (() => {
-  const m = location.hostname.match(/^([^.]+)\.github\.io$/);
-  const name = location.pathname.split("/").filter(Boolean)[0];
-  return m && name ? `${m[1]}/${name}` : "obvmail-sys/flight-tracker";
-})();
-const WORKFLOW = "fetch.yml";
-const TOKEN_KEY = "gh_token";
-const store = {
-  get() { try { return localStorage.getItem(TOKEN_KEY) || ""; } catch { return ""; } },
-  set(v) { try { v ? localStorage.setItem(TOKEN_KEY, v) : localStorage.removeItem(TOKEN_KEY); return true; } catch { return false; } },
-};
-$("ghLink").href = `https://github.com/${REPO}/actions/workflows/${WORKFLOW}`;
-document.querySelectorAll(".repoName").forEach(e => e.textContent = REPO);
-$("tokenToggle").addEventListener("click", e => { e.preventDefault(); $("tokenBox").hidden = !$("tokenBox").hidden; });
-$("tokenSave").addEventListener("click", () => {
-  const v = $("tokenInput").value.trim();
-  if (!v) return;
-  $("runMsg").textContent = store.set(v) ? "Ключ сохранён — нажмите «Обновить сейчас»" : "Браузер не дал сохранить ключ (приватный режим?)";
-  $("tokenInput").value = ""; $("tokenBox").hidden = true;
-});
-$("tokenDel").addEventListener("click", () => { store.set(""); $("runMsg").textContent = "Ключ удалён"; });
-
-async function gh(path, opts = {}) {
-  const r = await fetch(`https://api.github.com/repos/${REPO}${path}`, {
-    ...opts,
-    headers: { Accept: "application/vnd.github+json", Authorization: `Bearer ${store.get()}`,
-               "X-GitHub-Api-Version": "2022-11-28", ...(opts.headers || {}) },
-  });
-  if (!r.ok) {
-    const t = await r.text().catch(() => "");
-    throw new Error(r.status === 401 ? "ключ недействителен или истёк"
-      : r.status === 403 || r.status === 404 ? "у ключа нет доступа (нужно Actions: Read and write для " + REPO + ")"
-      : `GitHub ${r.status} ${t.slice(0, 120)}`);
-  }
-  return r.status === 204 ? null : r.json();
-}
-
-$("runBtn").addEventListener("click", async () => {
-  if (!store.get()) { $("tokenBox").hidden = false; $("runMsg").textContent = "Сначала добавьте ключ"; return; }
-  const btn = $("runBtn"), msg = $("runMsg");
-  btn.disabled = true;
-  const before = LAST?.checked_at || "";
-  try {
-    msg.textContent = "Запускаю проверку…";
-    const { default_branch } = await gh("");
-    await gh(`/actions/workflows/${WORKFLOW}/dispatches`, { method: "POST", body: JSON.stringify({ ref: default_branch }) });
-    const started = Date.now();
-    // ждём, пока на сайте появятся новые данные (сбор ~30 с + публикация сайта ~1–2 мин)
-    while (Date.now() - started < 8 * 60e3) {
-      await new Promise(r => setTimeout(r, 15e3));
-      const sec = Math.round((Date.now() - started) / 1e3);
-      msg.textContent = `Проверка идёт… ${sec} с`;
-      const last = await fetch("data/last_run.json?t=" + Date.now()).then(r => r.json()).catch(() => null);
-      if (last && last.checked_at !== before) {
-        await load();
-        msg.textContent = `Готово: найдено ${last.found} рейсов` + (last.errors?.length ? `, ошибок API: ${last.errors.length}` : "");
-        btn.disabled = false;
-        return;
-      }
-    }
-    msg.textContent = "Проверка запущена, но новые данные ещё не опубликованы — обновите страницу через пару минут";
-  } catch (e) {
-    msg.textContent = "Не получилось: " + e.message;
-    if (/ключ/.test(e.message)) $("tokenBox").hidden = false;
-  }
-  btn.disabled = false;
-});
 
 load().catch(e => { $("status").textContent = "Ошибка загрузки данных: " + e.message; $("status").classList.add("err"); });
 </script>
