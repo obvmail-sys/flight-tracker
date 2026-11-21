@@ -1,0 +1,31 @@
+{
+  "checked_at": "2026-11-21T20:26:51Z",
+  "ok": false,
+  "requests": 29,
+  "errors": [
+    "origin=HEL destination=BCN departure_at=2026-11 return_at=2027-01 one_way=false: HTTP 400: {\"error\":\"bad request: departure_at: diff between max depart date and min return date exceeds supported maximum of 30.\",\"data\":null,\"status\":400,\"success\":false}",
+    "origin=HEL destination=BCN departure_at=2026-11 return_at=2027-02 one_way=false: HTTP 400: {\"error\":\"bad request: departure_at: diff between max depart date and min return date exceeds supported maximum of 30.\",\"data\":null,\"status\":400,\"success\":false}",
+    "origin=HEL destination=BCN departure_at=2026-12 return_at=2027-02 one_way=false: HTTP 400: {\"error\":\"bad request: departure_at: diff between max depart date and min return date exceeds supported maximum of 30.\",\"data\":null,\"status\":400,\"success\":false}",
+    "origin=HEL destination=BCN departure_at=2026-12 return_at=2027-03 one_way=false: HTTP 400: {\"error\":\"bad request: departure_at: diff between max depart date and min return date exceeds supported maximum of 30.\",\"data\":null,\"status\":400,\"success\":false}",
+    "origin=HEL destination=BCN departure_at=2027-01 return_at=2027-04 one_way=false: HTTP 400: {\"error\":\"bad request: departure_at: diff between max depart date and min return date exceeds supported maximum of 30.\",\"data\":null,\"status\":400,\"success\":false}",
+    "origin=HEL destination=BCN departure_at=2027-01 return_at=2027-05 one_way=false: HTTP 400: {\"error\":\"bad request: departure_at: diff between max depart date and min return date exceeds supported maximum of 30.\",\"data\":null,\"status\":400,\"success\":false}",
+    "origin=HEL destination=BCN departure_at=2027-02 return_at=2027-04 one_way=false: HTTP 400: {\"error\":\"bad request: departure_at: diff between max depart date and min return date exceeds supported maximum of 30.\",\"data\":null,\"status\":400,\"success\":false}",
+    "origin=HEL destination=BCN departure_at=2027-02 return_at=2027-05 one_way=false: HTTP 400: {\"error\":\"bad request: departure_at: diff between max depart date and min return date exceeds supported maximum of 30.\",\"data\":null,\"status\":400,\"success\":false}",
+    "origin=HEL destination=BCN departure_at=2027-03 return_at=2027-05 one_way=false: HTTP 400: {\"error\":\"bad request: departure_at: diff between max depart date and min return date exceeds supported maximum of 30.\",\"data\":null,\"status\":400,\"success\":false}",
+    "origin=HEL destination=BCN departure_at=2027-03 return_at=2027-06 one_way=false: HTTP 400: {\"error\":\"bad request: departure_at: diff between max depart date and min return date exceeds supported maximum of 30.\",\"data\":null,\"status\":400,\"success\":false}",
+    "origin=HEL destination=BCN departure_at=2027-04 return_at=2027-06 one_way=false: HTTP 400: {\"error\":\"bad request: departure_at: diff between max depart date and min return date exceeds supported maximum of 30.\",\"data\":null,\"status\":400,\"success\":false}",
+    "origin=HEL destination=BCN departure_at=2027-04 return_at=2027-07 one_way=false: HTTP 400: {\"error\":\"bad request: departure_at: diff between max depart date and min return date exceeds supported maximum of 30.\",\"data\":null,\"status\":400,\"success\":false}"
+  ],
+  "found": 34,
+  "found_roundtrip": 0,
+  "found_two_oneway": 34,
+  "config": {
+    "origin": "HEL",
+    "destination": "BCN",
+    "months_ahead": 6,
+    "trip_days_min": 60,
+    "trip_days_max": 90
+  },
+  "added": 34,
+  "total_records": 34
+}
