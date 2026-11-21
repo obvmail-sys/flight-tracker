@@ -180,27 +180,30 @@ class Collector:
     def roundtrips(self) -> list[dict]:
         o, dst = self.cfg["origin"], self.cfg["destination"]
         out = []
+        # API отклоняет запросы, где между последней датой вылета и первой
+        # датой возврата больше 30 дней ("exceeds supported maximum of 30"),
+        # поэтому return_at не передаём: берём все туда-обратно с вылетом в
+        # этом месяце и сами оставляем поездки на trip_days_min..max дней.
         for dm in departure_months(self.today, int(self.cfg["months_ahead"])):
-            for rm in return_months_for(dm, self.dmin, self.dmax, self.today):
-                rows = self.query(origin=o, destination=dst, departure_at=ym(dm),
-                                  return_at=ym(rm), one_way="false")
-                for r in rows or []:
-                    dep, ret = iso_date(r.get("departure_at")), iso_date(r.get("return_at"))
-                    days = self._trip_ok(dep, ret)
-                    if days is None or r.get("price") is None:
-                        continue
-                    out.append({
-                        "type": "roundtrip",
-                        "departure_date": dep,
-                        "return_date": ret,
-                        "trip_days": days,
-                        "price_eur": round(float(r["price"]), 2),
-                        "airline_out": r.get("airline"),
-                        "airline_back": r.get("airline"),
-                        "transfers": r.get("transfers"),
-                        "transfers_back": r.get("return_transfers"),
-                        "link": r.get("link"),
-                    })
+            rows = self.query(origin=o, destination=dst, departure_at=ym(dm),
+                              one_way="false")
+            for r in rows or []:
+                dep, ret = iso_date(r.get("departure_at")), iso_date(r.get("return_at"))
+                days = self._trip_ok(dep, ret)
+                if days is None or r.get("price") is None:
+                    continue
+                out.append({
+                    "type": "roundtrip",
+                    "departure_date": dep,
+                    "return_date": ret,
+                    "trip_days": days,
+                    "price_eur": round(float(r["price"]), 2),
+                    "airline_out": r.get("airline"),
+                    "airline_back": r.get("airline"),
+                    "transfers": r.get("transfers"),
+                    "transfers_back": r.get("return_transfers"),
+                    "link": r.get("link"),
+                })
         return out
 
     # B) два билета в одну сторону
