@@ -1,0 +1,55 @@
+name: Fetch prices
+
+on:
+  schedule:
+    - cron: "17 */4 * * *"   # каждые 4 часа (минута 17 — меньше очередь в GitHub)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fetch-prices
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch prices
+        id: fetch
+        env:
+          TRAVELPAYOUTS_TOKEN: ${{ secrets.TRAVELPAYOUTS_TOKEN }}
+        run: python fetch.py
+        # даже если все запросы упали, коммитим last_run.json со статусом
+        continue-on-error: true
+
+      - name: Commit data
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/prices.json data/last_run.json
+          if git diff --cached --quiet; then
+            echo "Нет изменений"
+            exit 0
+          fi
+          git commit -m "data: prices $(date -u +'%Y-%m-%d %H:%M UTC')"
+          for i in 1 2 3 4; do
+            git push && exit 0
+            git pull --rebase
+            sleep $((i * 5))
+          done
+          exit 1
+
+      - name: Fail if fetch failed
+        if: steps.fetch.outcome == 'failure'
+        run: |
+          echo "::error::fetch.py завершился с ошибкой — см. лог шага Fetch prices"
+          exit 1

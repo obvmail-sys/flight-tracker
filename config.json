@@ -1,0 +1,7 @@
+{
+  "origin": "HEL",
+  "destination": "BCN",
+  "months_ahead": 6,
+  "trip_days_min": 60,
+  "trip_days_max": 90
+}
