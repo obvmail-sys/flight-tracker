@@ -2,7 +2,9 @@ name: Fetch prices
 
 on:
   schedule:
-    - cron: "17 */4 * * *"   # каждые 4 часа (минута 17 — меньше очередь в GitHub)
+    # GitHub может пропускать запуски по расписанию, поэтому будим каждый час,
+    # а реальный сбор делаем, только если с прошлой проверки прошло ≥ MIN_INTERVAL_MIN.
+    - cron: "23 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -12,6 +14,9 @@ concurrency:
   group: fetch-prices
   cancel-in-progress: false
 
+env:
+  MIN_INTERVAL_MIN: "210"   # 3,5 часа → на практике сбор примерно раз в 4 часа
+
 jobs:
   fetch:
     runs-on: ubuntu-latest
@@ -19,12 +24,33 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check interval
+        id: gate
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from datetime import datetime, timezone
+          skip = False
+          if os.environ["GITHUB_EVENT_NAME"] == "schedule":
+              try:
+                  last = json.load(open("data/last_run.json"))["checked_at"]
+                  age = (datetime.now(timezone.utc) - datetime.fromisoformat(last.replace("Z", "+00:00"))).total_seconds() / 60
+                  skip = age < int(os.environ["MIN_INTERVAL_MIN"])
+                  print(f"С прошлой проверки {age:.0f} мин → {'пропуск' if skip else 'сбор'}")
+              except Exception as e:
+                  print("Нет данных о прошлой проверке:", e)
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"skip={'true' if skip else 'false'}\n")
+          PY
+
       - uses: actions/setup-python@v5
+        if: steps.gate.outputs.skip != 'true'
         with:
           python-version: "3.12"
 
       - name: Fetch prices
         id: fetch
+        if: steps.gate.outputs.skip != 'true'
         env:
           TRAVELPAYOUTS_TOKEN: ${{ secrets.TRAVELPAYOUTS_TOKEN }}
         run: python fetch.py
@@ -32,6 +58,7 @@ jobs:
         continue-on-error: true
 
       - name: Commit data
+        if: steps.gate.outputs.skip != 'true'
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -49,7 +76,7 @@ jobs:
           exit 1
 
       - name: Fail if fetch failed
-        if: steps.fetch.outcome == 'failure'
+        if: steps.gate.outputs.skip != 'true' && steps.fetch.outcome == 'failure'
         run: |
           echo "::error::fetch.py завершился с ошибкой — см. лог шага Fetch prices"
           exit 1
