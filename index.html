@@ -51,11 +51,29 @@
   th { font-size: 12px; color: var(--muted); font-weight: 600; cursor: pointer; user-select: none; }
   td.num, th.num { text-align: right; }
   tr.cheap td:first-child { box-shadow: inset 3px 0 0 var(--good); }
+  details.month { border: 1px solid var(--line); border-radius: 10px; margin-top: 8px; }
+  details.month > summary { padding: 10px 12px; cursor: pointer; list-style: none; display: flex;
+                            gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  details.month > summary::-webkit-details-marker { display: none; }
+  details.month > summary::before { content: "▸"; color: var(--muted); transition: transform .15s; }
+  details.month[open] > summary::before { transform: rotate(90deg); }
+  details.month > summary b { text-transform: capitalize; }
+  details.month .tablewrap { padding: 0 4px 6px; }
+  .daybox { margin-top: 10px; border: 1px solid var(--line); border-radius: 10px; padding: 8px 8px 4px; }
+  .daybox .dayhead { display: flex; justify-content: space-between; align-items: center; padding: 0 4px; }
+  .daybox .dayhead button { padding: 2px 10px; }
+  .chart svg [data-date] { cursor: pointer; }
+  .hint { font-size: 12px; }
   a { color: var(--out); }
   .tip { position: fixed; pointer-events: none; background: var(--card); border: 1px solid var(--line);
          border-radius: 8px; padding: 6px 8px; font-size: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.15);
          display: none; z-index: 10; }
   [hidden] { display: none !important; }
+  @media (max-width: 600px) {
+    .summary { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .stat { padding: 8px; font-size: 12px; }
+    .stat .big { font-size: 18px; }
+  }
 </style>
 </head>
 <body>
@@ -209,31 +227,35 @@ function renderDirection(o, d, title, color, wFrom, wTo, tr) {
         : `<div class="big muted">—</div><div class="muted">нет данных</div>`) + `</div>
       <div class="stat"><div class="muted">Тренд цены</div>${trHtml}</div>
       <div class="stat"><div class="muted">Найдено рейсов</div><div class="big">${rows.length}</div>
-        <div class="muted">на ${new Set(rows.map(r => r.departure_date)).size} дат</div></div>
+        <div class="muted">на ${((n) => n + " дат" + plural(n, "у", "ы", ""))(new Set(rows.map(r => r.departure_date)).size)}</div></div>
     </div>
     <div class="legend"><span><i class="dot" style="background:${color}"></i>Цена рейса</span><span><i class="dash"></i>Линейный тренд</span></div>
     <div class="chart"></div>
-    <h3>Все рейсы <span class="muted">(${rows.length})</span></h3>
-    <div class="tablewrap"><table>
-      <thead><tr>
-        <th data-sort="departure_date">Дата</th>
-        <th data-sort="departure_time">Время</th>
-        <th data-sort="price_eur" class="num">Цена</th>
-        <th data-sort="change" class="num">Изм.</th>
-        <th data-sort="airline">Авиакомпания</th>
-        <th data-sort="transfers" class="num">Пересадки</th>
-        <th data-sort="duration_min" class="num">В пути</th>
-        <th>Купить</th>
-      </tr></thead><tbody></tbody>
-    </table></div>`;
+    <div class="hint muted">Нажмите на точку графика, чтобы увидеть рейсы этого дня</div>
+    <div class="daybox" hidden></div>
+    <h3>Топ-${TOP_N} самых дешёвых</h3>
+    <div class="top"></div>
+    <h3>Все рейсы по месяцам <span class="muted">(${rows.length})</span></h3>
+    <div class="months"></div>`;
   $("dirs").append(sec);
   renderChart(sec.querySelector(".chart"), rows, color, wFrom, wTo, t);
-  const ss = sortState[id] ||= { key: "departure_date", dir: 1 };
-  const draw = () => renderTable(sec.querySelector("tbody"), rows, ss);
-  sec.querySelectorAll("th[data-sort]").forEach(th => th.addEventListener("click", () => {
-    ss.dir = ss.key === th.dataset.sort ? -ss.dir : 1; ss.key = th.dataset.sort; draw();
-  }));
-  draw();
+  const ss = sortState[id] ||= { key: "departure_date", dir: 1, open: new Set(), day: null };
+  const lists = () => renderLists(sec, rows, ss);
+  sec.addEventListener("click", e => {
+    const th = e.target.closest("th[data-sort]");
+    if (th && th.closest(".months")) {  // сортировка внутри месяцев
+      ss.dir = ss.key === th.dataset.sort ? -ss.dir : 1; ss.key = th.dataset.sort; lists(); return;
+    }
+    const pt = e.target.closest("[data-date]");
+    if (pt) { ss.day = pt.dataset.date; renderDay(sec, rows, ss); return; }
+    if (e.target.closest(".dayclose")) { ss.day = null; renderDay(sec, rows, ss); }
+  });
+  sec.querySelector(".months").addEventListener("toggle", e => {
+    const m = e.target.dataset.month; if (!m) return;
+    e.target.open ? ss.open.add(m) : ss.open.delete(m);
+  }, true);
+  lists();
+  renderDay(sec, rows, ss);
 }
 
 function renderChart(el, rows, color, wFrom, wTo, t) {
@@ -270,31 +292,73 @@ function renderChart(el, rows, color, wFrom, wTo, t) {
     const tip = `${fmtDate(r.departure_date)} ${r.departure_time || ""}: ${fmtEur(r.price_eur)} · ${r.airline || ""}, пересадок ${r.transfers ?? "?"}`;
     const cx = X(+new Date(r.departure_date + "T00:00:00"));
     g += r.price_eur > cap
-      ? `<path d="M${cx - 6} ${P.t + 10} L${cx + 6} ${P.t + 10} L${cx} ${P.t} Z" fill="${color}" data-tip="${esc(tip + " (выше шкалы)")}"/>`
-      : `<circle cx="${cx}" cy="${Y(r.price_eur)}" r="5" fill="${color}" fill-opacity=".8" data-tip="${esc(tip)}"/>`;
+      ? `<path d="M${cx - 6} ${P.t + 10} L${cx + 6} ${P.t + 10} L${cx} ${P.t} Z" fill="${color}" data-date="${r.departure_date}" data-tip="${esc(tip + " (выше шкалы)")}"/>`
+      : `<circle cx="${cx}" cy="${Y(r.price_eur)}" r="5" fill="${color}" fill-opacity=".8" stroke="transparent" stroke-width="10" data-date="${r.departure_date}" data-tip="${esc(tip)}"/>`;
   }
   el.innerHTML = `<svg width="100%" viewBox="0 0 ${W} ${H}" role="img" aria-label="Цена по дате вылета">${g}</svg>`;
 }
 
-function renderTable(tbody, rows, ss) {
-  const minByDate = {};
-  for (const r of rows) minByDate[r.departure_date] = Math.min(minByDate[r.departure_date] ?? Infinity, r.price_eur);
-  rows = [...rows].sort((a, b) => {
+const TOP_N = 10;
+const MONTHS = ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"];
+
+function sortRows(rows, ss) {
+  return [...rows].sort((a, b) => {
     const va = a[ss.key] ?? "", vb = b[ss.key] ?? "";
     return (typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb))) * ss.dir
       || a.departure_date.localeCompare(b.departure_date) || a.price_eur - b.price_eur;
   });
-  tbody.innerHTML = rows.map(r => `<tr class="${r.price_eur === minByDate[r.departure_date] ? "cheap" : ""}">
-    <td>${fmtDate(r.departure_date)}</td>
-    <td>${esc(r.departure_time || "")}</td>
-    <td class="num"><b>${fmtEur(r.price_eur)}</b></td>
-    <td class="num ${r.change < 0 ? "down" : r.change > 0 ? "up" : "muted"}">${r.change ? (r.change > 0 ? "+" : "−") + Math.abs(Math.round(r.change)) : "·"}</td>
-    <td>${esc(r.airline)}${r.flight_number ? " " + esc(r.flight_number) : ""}</td>
-    <td class="num">${r.transfers ?? "?"}</td>
-    <td class="num">${fmtDur(r.duration_min)}</td>
-    <td>${r.link ? `<a href="${esc(AVIASALES + r.link)}" target="_blank" rel="noopener">Aviasales →</a>` : ""}</td>
-  </tr>`).join("") || `<tr><td colspan="8" class="muted">Нет рейсов</td></tr>`;
 }
+const byPrice = rows => [...rows].sort((a, b) => a.price_eur - b.price_eur || a.departure_date.localeCompare(b.departure_date));
+
+function tableHtml(rows, { sortable = false, minByDate = {} } = {}) {
+  const th = (k, label, cls = "") => `<th ${sortable && k ? `data-sort="${k}"` : ""} class="${cls}">${label}</th>`;
+  return `<div class="tablewrap"><table><thead><tr>
+      ${th("departure_date", "Дата")}${th("departure_time", "Время")}${th("price_eur", "Цена", "num")}
+      ${th("change", "Изм.", "num")}${th("airline", "Авиакомпания")}${th("transfers", "Пересадки", "num")}
+      ${th("duration_min", "В пути", "num")}${th("", "Купить")}
+    </tr></thead><tbody>` +
+    (rows.map(r => `<tr class="${r.price_eur === minByDate[r.departure_date] ? "cheap" : ""}">
+      <td>${fmtDate(r.departure_date)}</td>
+      <td>${esc(r.departure_time || "")}</td>
+      <td class="num"><b>${fmtEur(r.price_eur)}</b></td>
+      <td class="num ${r.change < 0 ? "down" : r.change > 0 ? "up" : "muted"}">${r.change ? (r.change > 0 ? "+" : "−") + Math.abs(Math.round(r.change)) : "·"}</td>
+      <td>${esc(r.airline)}${r.flight_number ? " " + esc(r.flight_number) : ""}</td>
+      <td class="num">${r.transfers ?? "?"}</td>
+      <td class="num">${fmtDur(r.duration_min)}</td>
+      <td>${r.link ? `<a href="${esc(AVIASALES + r.link)}" target="_blank" rel="noopener">Aviasales →</a>` : ""}</td>
+    </tr>`).join("") || `<tr><td colspan="8" class="muted">Нет рейсов</td></tr>`) +
+    `</tbody></table></div>`;
+}
+
+function renderLists(sec, rows, ss) {
+  const minByDate = {};
+  for (const r of rows) minByDate[r.departure_date] = Math.min(minByDate[r.departure_date] ?? Infinity, r.price_eur);
+
+  sec.querySelector(".top").innerHTML = tableHtml(byPrice(rows).slice(0, TOP_N));
+
+  const groups = {};
+  for (const r of rows) (groups[r.departure_date.slice(0, 7)] ||= []).push(r);
+  sec.querySelector(".months").innerHTML = Object.keys(groups).sort().map(m => {
+    const g = groups[m], min = Math.min(...g.map(r => r.price_eur));
+    const name = MONTHS[+m.slice(5) - 1] + (m.slice(0, 4) !== String(new Date().getFullYear()) ? " " + m.slice(0, 4) : "");
+    return `<details class="month" data-month="${m}" ${ss.open.has(m) ? "open" : ""}>
+      <summary><b>${name}</b><span>— от ${fmtEur(min)}</span><span class="muted">· ${g.length} рейс${plural(g.length)} · ${((n) => n + " дат" + plural(n, "а", "ы", ""))(new Set(g.map(r => r.departure_date)).size)}</span></summary>
+      ${tableHtml(sortRows(g, ss), { sortable: true, minByDate })}
+    </details>`;
+  }).join("") || '<div class="muted">Нет рейсов</div>';
+}
+
+function renderDay(sec, rows, ss) {
+  const box = sec.querySelector(".daybox");
+  const day = ss.day && rows.filter(r => r.departure_date === ss.day);
+  if (!day || !day.length) { box.hidden = true; box.innerHTML = ""; return; }
+  box.hidden = false;
+  box.innerHTML = `<div class="dayhead"><b>Рейсы на ${fmtDate(ss.day)} (${day.length})</b>
+      <button type="button" class="dayclose" aria-label="Закрыть">✕</button></div>` + tableHtml(byPrice(day));
+}
+
+const plural = (n, one = "", few = "а", many = "ов") =>
+  (n % 10 === 1 && n % 100 !== 11) ? one : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) ? few : many;
 
 $("form").addEventListener("submit", e => { e.preventDefault(); show(); });
 $("window").addEventListener("change", show);
