@@ -1,14 +1,14 @@
 {
-  "checked_at": "2026-11-22T18:53:00Z",
+  "checked_at": "2026-11-22T20:53:11Z",
   "ok": true,
-  "requests": 28,
+  "requests": 112,
   "errors": [],
   "window": {
     "from": "2026-11-22",
     "to": "2027-05-21"
   },
-  "found": 141,
-  "added": 2,
+  "found": 206,
+  "added": 63,
   "config": {
     "collect_days_min": 0,
     "collect_days_max": 180
@@ -29,36 +29,117 @@
         "BCN-HEL"
       ],
       "found": {
-        "HEL-BCN": 79,
+        "HEL-BCN": 77,
         "BCN-HEL": 62
+      },
+      "failed_legs": []
+    },
+    {
+      "id": "hel_muc-agb-fmm-3",
+      "name": "Мюнхен",
+      "from": [
+        "HEL"
+      ],
+      "to": [
+        "MUC",
+        "AGB",
+        "FMM"
+      ],
+      "unknown": [],
+      "legs": [
+        "HEL-MUC",
+        "MUC-HEL",
+        "HEL-AGB",
+        "AGB-HEL",
+        "HEL-FMM",
+        "FMM-HEL"
+      ],
+      "found": {
+        "HEL-MUC": 36,
+        "MUC-HEL": 30,
+        "HEL-AGB": 0,
+        "AGB-HEL": 0,
+        "HEL-FMM": 0,
+        "FMM-HEL": 1
       },
       "failed_legs": []
     }
   ],
   "legs": {
     "HEL-BCN": {
-      "found": 79,
+      "found": 77,
       "errors": 0,
-      "added": 2,
+      "added": 0,
       "total": 97
     },
     "BCN-HEL": {
       "found": 62,
       "errors": 0,
+      "added": 2,
+      "total": 78
+    },
+    "HEL-MUC": {
+      "found": 36,
+      "errors": 0,
+      "added": 30,
+      "total": 30
+    },
+    "MUC-HEL": {
+      "found": 30,
+      "errors": 0,
+      "added": 30,
+      "total": 30
+    },
+    "HEL-AGB": {
+      "found": 0,
+      "errors": 0,
       "added": 0,
-      "total": 76
+      "total": 0
+    },
+    "AGB-HEL": {
+      "found": 0,
+      "errors": 0,
+      "added": 0,
+      "total": 0
+    },
+    "HEL-FMM": {
+      "found": 0,
+      "errors": 0,
+      "added": 0,
+      "total": 0
+    },
+    "FMM-HEL": {
+      "found": 1,
+      "errors": 0,
+      "added": 1,
+      "total": 1
     }
   },
   "names": {
+    "AGB": [
+      "Аугсбург",
+      "Аугсбург",
+      "Германия"
+    ],
     "BCN": [
       "Эль-Прат",
       "Барселона",
       "Испания"
     ],
+    "FMM": [
+      "Мемминген",
+      "Мемминген",
+      "Германия"
+    ],
     "HEL": [
       "Вантаа",
       "Хельсинки",
       "Финляндия"
+    ],
+    "MUC": [
+      "Франц Йозеф Штраус",
+      "Мюнхен",
+      "Германия"
     ]
   }
 }
