@@ -64,6 +64,26 @@
   .daybox .dayhead button { padding: 2px 10px; }
   .chart svg [data-date] { cursor: pointer; }
   .hint { font-size: 12px; }
+  .days { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+  .dayrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .dlabel { width: 64px; font-size: 13px; color: var(--muted); }
+  .chipset { display: flex; flex-wrap: wrap; gap: 4px; }
+  .dchip { padding: 4px 0; width: 38px; font-size: 13px; border-radius: 8px; text-align: center; }
+  .dchip.on { background: var(--out); border-color: var(--out); color: #fff; }
+  .chipset[data-dir=back] .dchip.on { background: var(--back); border-color: var(--back); }
+  #matchBtn.on { background: var(--good); border-color: var(--good); color: #fff; }
+  details.wk { border: 1px solid var(--line); border-radius: 10px; margin-top: 6px; }
+  details.wk > summary { padding: 9px 12px; cursor: pointer; list-style: none; display: flex; gap: 6px 10px;
+                         flex-wrap: wrap; align-items: baseline; font-variant-numeric: tabular-nums; }
+  details.wk > summary::-webkit-details-marker { display: none; }
+  details.wk > summary::before { content: "▸"; color: var(--muted); }
+  details.wk[open] > summary::before { content: "▾"; }
+  details.wk.best { border-color: var(--good); }
+  .wkbody { padding: 0 12px 10px; display: grid; gap: 6px; }
+  .combo { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font-size: 13px; }
+  .combo.top { border-color: var(--good); }
+  .combo .legs { color: var(--muted); }
+  .combo.none { opacity: .5; }
   .curve { display: inline-block; width: 18px; border-top: 3px solid; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
   .dash { border-top-color: var(--trend); }
   .toggles { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; margin: 10px 0 4px; }
@@ -108,6 +128,11 @@
       <button class="primary" type="submit">Показать</button>
       <datalist id="codes"></datalist>
     </form>
+    <div class="days">
+      <div class="dayrow"><button type="button" id="matchBtn">⚽ Выходные под матч</button><button type="button" id="allDays">Все дни</button></div>
+      <div class="dayrow"><span class="dlabel">Туда:</span><span class="chipset" data-dir="out"></span></div>
+      <div class="dayrow"><span class="dlabel">Обратно:</span><span class="chipset" data-dir="back"></span></div>
+    </div>
     <div class="status muted" id="status">Загрузка…</div>
   </section>
 
@@ -128,6 +153,20 @@ const iso = d => d.toISOString().slice(0, 10);
 const addDays = (d, n) => new Date(+d + n * DAY);
 
 let ALL = [], LAST = null, ROUTES = [], CFG = {};
+// Фильтр дней недели (0 = вс … 6 = сб). Пустое множество = все дни.
+const WD = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"], WD_ORDER = [1, 2, 3, 4, 5, 6, 0];
+const MATCH = { out: [5, 6], back: [0, 1] };  // туда пт/сб, обратно вс/пн
+const DAYS = { out: new Set(), back: new Set() };
+const wday = ds => new Date(ds + "T00:00:00").getDay();
+const daysParam = set => [...set].sort().join("");
+function drawDayChips() {
+  document.querySelectorAll(".chipset").forEach(cs => {
+    const set = DAYS[cs.dataset.dir];
+    cs.innerHTML = WD_ORDER.map(d => `<button type="button" class="dchip${set.has(d) ? " on" : ""}" data-d="${d}">${WD[d]}</button>`).join("");
+  });
+  const isMatch = daysParam(DAYS.out) === daysParam(new Set(MATCH.out)) && daysParam(DAYS.back) === daysParam(new Set(MATCH.back));
+  $("matchBtn").classList.toggle("on", isMatch);
+}
 const sortState = {};
 
 async function load() {
@@ -155,13 +194,16 @@ async function load() {
   $("from").value = (p.get("from") || ROUTES[0].origin).toUpperCase();
   $("to").value = (p.get("to") || ROUTES[0].destination).toUpperCase();
   $("tr").value = p.get("tr") || "";
+  for (const k of ["out", "back"]) DAYS[k] = new Set((p.get(k) || "").split("").filter(c => /[0-6]/.test(c)).map(Number));
+  drawDayChips();
   show();
 }
 
 function show() {
   const from = $("from").value.trim().toUpperCase(), to = $("to").value.trim().toUpperCase();
   const w = $("window").value, tr = $("tr").value;
-  history.replaceState(null, "", `?from=${from}&to=${to}&w=${w}${tr ? "&tr=" + tr : ""}`);
+  history.replaceState(null, "", `?from=${from}&to=${to}&w=${w}${tr ? "&tr=" + tr : ""}` +
+    (DAYS.out.size ? "&out=" + daysParam(DAYS.out) : "") + (DAYS.back.size ? "&back=" + daysParam(DAYS.back) : ""));
 
   const st = $("status"); st.classList.remove("err"); st.title = "";
   const tracked = ROUTES.some(r => (r.origin === from && r.destination === to) || (r.origin === to && r.destination === from));
@@ -183,16 +225,18 @@ function show() {
   st.textContent = s;
 
   $("dirs").innerHTML = "";
-  const a = renderDirection(from, to, "Туда", "var(--out)", wFrom, wTo, tr);
-  const b = renderDirection(to, from, "Обратно", "var(--back)", wFrom, wTo, tr);
+  renderWeekends(from, to, wFrom, wTo, tr);
+  const a = renderDirection(from, to, "Туда", "var(--out)", wFrom, wTo, tr, DAYS.out);
+  const b = renderDirection(to, from, "Обратно", "var(--back)", wFrom, wTo, tr, DAYS.back);
   renderCompare(a, b, wFrom, wTo);
 }
 
-function currentRows(o, d, wFrom, wTo, tr) {
+function currentRows(o, d, wFrom, wTo, tr, days = null) {
   const leg = ALL.filter(r => r.origin === o && r.destination === d);
   const latest = leg.reduce((m, r) => (r.last_seen_at > m ? r.last_seen_at : m), "");
   const rows = leg.filter(r => r.last_seen_at === latest && r.departure_date >= wFrom && r.departure_date <= wTo
-                               && (tr === "" || (r.transfers ?? 9) <= +tr));
+                               && (tr === "" || (r.transfers ?? 9) <= +tr)
+                               && (!days || !days.size || days.has(wday(r.departure_date))));
   for (const r of rows) {  // изменение цены на ту же дату с прошлых проверок
     // тот же рейс (авиакомпания + номер) на ту же дату, найденный раньше
     const prev = leg.filter(x => x !== r && x.departure_date === r.departure_date && x.checked_at < r.checked_at
@@ -279,8 +323,8 @@ function curvePaths(curve, X, Y, color, width = 2) {
           <path d="${path}" fill="none" stroke="${color}" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round"/>`;
 }
 
-function renderDirection(o, d, title, color, wFrom, wTo, tr) {
-  const rows = currentRows(o, d, wFrom, wTo, tr);
+function renderDirection(o, d, title, color, wFrom, wTo, tr, days) {
+  const rows = currentRows(o, d, wFrom, wTo, tr, days);
   const id = `${o}${d}`;
   const sec = document.createElement("section");
   sec.className = "card";
@@ -294,7 +338,7 @@ function renderDirection(o, d, title, color, wFrom, wTo, tr) {
               <div class="muted">за 10 дней · ${word}</div>`;
   }
   sec.innerHTML = `
-    <div class="head"><span class="bar" style="background:${color}"></span><h2>${title}: ${o} → ${d}</h2></div>
+    <div class="head"><span class="bar" style="background:${color}"></span><h2>${title}: ${o} → ${d}</h2>${days && days.size ? `<span class="muted">· только ${WD_ORDER.filter(x => days.has(x)).map(x => WD[x]).join(", ")}</span>` : ""}</div>
     <div class="summary">
       <div class="stat"><div class="muted">Самая низкая цена</div>` + (best
         ? `<div class="big">${fmtEur(best.price_eur)}</div><div class="muted">${fmtDate(best.departure_date)} · ${esc(best.airline)}</div>`
@@ -520,6 +564,95 @@ const plural = (n, one = "", few = "а", many = "ов") =>
 $("form").addEventListener("submit", e => { e.preventDefault(); show(); });
 $("window").addEventListener("change", show);
 $("tr").addEventListener("change", show);
+document.querySelectorAll(".chipset").forEach(cs => cs.addEventListener("click", e => {
+  const b = e.target.closest(".dchip"); if (!b) return;
+  const set = DAYS[cs.dataset.dir], d = +b.dataset.d;
+  set.has(d) ? set.delete(d) : set.add(d);
+  drawDayChips(); show();
+}));
+$("matchBtn").addEventListener("click", () => {
+  const on = $("matchBtn").classList.contains("on");
+  DAYS.out = new Set(on ? [] : MATCH.out); DAYS.back = new Set(on ? [] : MATCH.back);
+  drawDayChips(); show();
+});
+$("allDays").addEventListener("click", () => { DAYS.out = new Set(); DAYS.back = new Set(); drawDayChips(); show(); });
+
+// ---------- Блок «Выходные под матч»: для каждого воскресенья окна — 4 комбинации
+// туда пт/сб × обратно вс/пн, по самому дешёвому рейсу на дату (с учётом фильтра пересадок).
+const COMBOS = [[-2, 0, "пт → вс"], [-2, 1, "пт → пн"], [-1, 0, "сб → вс"], [-1, 1, "сб → пн"]];
+const wkOpen = new Set();
+function renderWeekends(from, to, wFrom, wTo, tr) {
+  const ext = (ds, n) => iso(addDays(new Date(ds + "T00:00:00"), n));
+  const cheapest = rows => { const m = {}; for (const r of rows) if (!m[r.departure_date] || r.price_eur < m[r.departure_date].price_eur) m[r.departure_date] = r; return m; };
+  const outBy = cheapest(currentRows(from, to, ext(wFrom, -2), wTo, tr));
+  const backBy = cheapest(currentRows(to, from, wFrom, ext(wTo, 1), tr));
+
+  const weeks = [];
+  let sun = new Date(wFrom + "T00:00:00"); sun = addDays(sun, (7 - sun.getDay()) % 7);
+  for (; iso(sun) <= wTo; sun = addDays(sun, 7)) {
+    const su = iso(sun);
+    const combos = COMBOS.map(([dOut, dBack, label]) => {
+      const a = outBy[ext(su, dOut)], b = backBy[ext(su, dBack)];
+      return { label, a, b, total: a && b ? a.price_eur + b.price_eur : null };
+    });
+    const ok = combos.filter(c => c.total != null);
+    weeks.push({ su, combos, best: ok.length ? ok.reduce((m, c) => c.total < m.total ? c : m) : null });
+  }
+  const full = weeks.filter(w => w.best);
+  const cheapestWeek = full.length ? full.reduce((m, w) => w.best.total < m.best.total ? w : m) : null;
+
+  const sec = document.createElement("section");
+  sec.className = "card";
+  const leg = (r, dir) => r
+    ? `${dir} ${fmtDate(r.departure_date)} ${esc(r.departure_time || "")} · ${fmtEur(r.price_eur)} · ${esc(r.airline || "")}${r.transfers ? `, ${r.transfers} пер.` : ", прямой"}` +
+      (r.link ? ` <a href="${esc(AVIASALES + r.link)}" target="_blank" rel="noopener">купить</a>` : "")
+    : `${dir} — нет цены в кэше`;
+  sec.innerHTML = `
+    <div class="head"><span class="bar" style="background:var(--good)"></span><h2>⚽ Выходные под матч: ${from} ⇄ ${to}</h2></div>
+    <div class="muted hint" style="margin-top:4px">Для каждого воскресенья: туда в пятницу или субботу, обратно в воскресенье или понедельник — 4 комбинации, сумма двух билетов в одну сторону.
+      Полных вариантов: ${full.length} из ${weeks.length} выходных.</div>
+    <div class="legend"><span><i class="dot" style="background:var(--good);opacity:.4"></i>Цена поездки (лучшая комбинация)</span><span><i class="curve" style="border-color:var(--good)"></i>Плавная кривая</span></div>
+    <div class="chart wkchart"></div>
+    <div class="wklist"></div>`;
+  $("dirs").append(sec);
+
+  // график: лучшая сумма по выходным + плавная кривая
+  const el = sec.querySelector(".wkchart");
+  if (full.length) {
+    const W = Math.max(320, el.clientWidth || 800), H = 220, P = { l: 48, r: 14, t: 12, b: 28 };
+    const x0 = +new Date(wFrom + "T00:00:00"), x1 = +new Date(wTo + "T00:00:00");
+    const ys = full.map(w => w.best.total);
+    let y0 = Math.min(...ys), y1 = Math.max(...ys); const pad = (y1 - y0) * 0.15 || 20; y0 = Math.max(0, y0 - pad); y1 += pad;
+    const X = x => P.l + (x - x0) / (x1 - x0 || DAY) * (W - P.l - P.r);
+    const Y = y => H - P.b - (y - y0) / (y1 - y0) * (H - P.t - P.b);
+    let g = "";
+    for (let i = 0; i <= 4; i++) { const v = y0 + (y1 - y0) * i / 4; g += `<line x1="${P.l}" x2="${W - P.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/><text x="${P.l - 6}" y="${Y(v) + 4}" text-anchor="end">€${Math.round(v)}</text>`; }
+    const nT = Math.max(2, Math.min(7, Math.floor(W / 110)));
+    for (let i = 0; i <= nT; i++) { const v = x0 + (x1 - x0) * i / nT; g += `<text x="${X(v)}" y="${H - 8}" text-anchor="middle">${new Date(v).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}</text>`; }
+    const pseudo = full.map(w => ({ departure_date: w.su, price_eur: w.best.total }));
+    for (const w of full) g += `<circle cx="${X(+new Date(w.su + "T00:00:00"))}" cy="${Y(w.best.total)}" r="5" fill="var(--good)" fill-opacity=".35" stroke="transparent" stroke-width="10" data-wk="${w.su}" data-tip="${esc(`вс ${fmtDate(w.su)}: ${fmtEur(w.best.total)} (${w.best.label})`)}" style="cursor:pointer"/>`;
+    g += `<g pointer-events="none">${curvePaths(lowess(pseudo), X, Y, "var(--good)")}</g>`;
+    el.innerHTML = `<svg width="100%" viewBox="0 0 ${W} ${H}" role="img" aria-label="Цена поездки по выходным">${g}</svg>`;
+  } else el.innerHTML = '<div class="muted">Пока нет выходных, где в кэше есть и «туда», и «обратно».</div>';
+
+  // список выходных: полные — раскрываемые карточки; без данных — одной строкой
+  const empty = weeks.length - full.length;
+  sec.querySelector(".wklist").innerHTML = full.map(w => {
+    const cheapAll = Math.min(...w.combos.filter(c => c.total != null).map(c => c.total));
+    return `<details class="wk${w === cheapestWeek ? " best" : ""}" data-su="${w.su}" ${wkOpen.has(w.su) ? "open" : ""}>
+      <summary><b>${fmtDate(ext(w.su, -1))} – ${fmtDate(w.su)}</b><span>от <b>${fmtEur(w.best.total)}</b></span>
+        <span class="muted">${w.best.label}${w === cheapestWeek ? " · самые дешёвые выходные" : ""}</span></summary>
+      <div class="wkbody">${w.combos.map(c => `<div class="combo${c.total === cheapAll ? " top" : ""}${c.total == null ? " none" : ""}">
+          <b>${c.label}</b> ${c.total != null ? `— <b>${fmtEur(c.total)}</b>` : "— нет полной пары"}${c.label === "сб → пн" ? ' <span class="muted">★ удобнее всего</span>' : ""}
+          <div class="legs">${leg(c.a, "туда")}<br>${leg(c.b, "обратно")}</div></div>`).join("")}</div>
+    </details>`;
+  }).join("") + (empty ? `<div class="muted hint" style="margin-top:8px">Выходных без полной пары цен: ${empty} — появятся, когда в кэше будут и «туда», и «обратно».</div>` : "");
+  sec.querySelectorAll("details.wk").forEach(d => d.addEventListener("toggle", () => d.open ? wkOpen.add(d.dataset.su) : wkOpen.delete(d.dataset.su)));
+  sec.querySelectorAll("[data-wk]").forEach(c => c.addEventListener("click", () => {
+    const d = sec.querySelector(`details.wk[data-su="${c.dataset.wk}"]`); if (!d) return;
+    d.open = true; d.scrollIntoView({ behavior: "smooth", block: "center" });
+  }));
+}
 $("swap").addEventListener("click", () => { [$("from").value, $("to").value] = [$("to").value, $("from").value]; show(); });
 // На телефонах «resize» срабатывает при показе/скрытии адресной строки во время
 // прокрутки — перерисовываем только если реально изменилась ширина.
