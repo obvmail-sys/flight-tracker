@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-11-22T10:12:53Z",
+  "checked_at": "2026-11-22T14:52:52Z",
   "ok": true,
   "requests": 28,
   "errors": [],
@@ -7,7 +7,7 @@
     "from": "2026-11-22",
     "to": "2027-05-21"
   },
-  "found": 137,
+  "found": 142,
   "config": {
     "routes": [
       {
@@ -18,6 +18,6 @@
     "collect_days_min": 0,
     "collect_days_max": 180
   },
-  "added": 18,
-  "total_records": 146
+  "added": 13,
+  "total_records": 159
 }
