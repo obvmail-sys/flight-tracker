@@ -1,11 +1,11 @@
 {
-  "checked_at": "2026-11-21T20:57:21Z",
+  "checked_at": "2026-11-22T00:20:55Z",
   "ok": true,
   "requests": 16,
   "errors": [],
   "window": {
-    "from": "2026-11-21",
-    "to": "2027-02-19"
+    "from": "2026-11-22",
+    "to": "2027-02-20"
   },
   "found": 119,
   "config": {
@@ -20,6 +20,6 @@
     "view_days_min": 60,
     "view_days_max": 90
   },
-  "added": 58,
-  "total_records": 118
+  "added": 4,
+  "total_records": 122
 }
