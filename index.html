@@ -890,14 +890,18 @@ $("addSave").addEventListener("click", () => {
   if (!ADD.from.length || !ADD.to.length) { msg.textContent = "Выберите хотя бы один аэропорт «Откуда» и один «Куда»."; return; }
   if (bad.length) { msg.textContent = `Уберите неизвестные коды: ${bad.join(", ")}.`; return; }
   if (!name) { msg.textContent = "Впишите название вкладки."; return; }
+  // повторное сохранение той же вкладки (например, если GitHub не открылся) — тот же файл, без дубликатов
+  const same = (a, b) => a.length === b.length && a.every(x => b.includes(x));
+  const prevPending = LS.get("ft_pending", []).find(p => same(p.from, ADD.from) && same(p.to, ADD.to));
   let id = (ADD.from.join("-") + "_" + ADD.to.join("-")).toLowerCase(), base = id, i = 2;
-  while (TABS.some(t => t.id === id)) id = `${base}-${i++}`;
+  if (prevPending) id = prevPending.id;
+  else while (TABS.some(t => t.id === id)) id = `${base}-${i++}`;
   const body = JSON.stringify({ name, from: ADD.from, to: ADD.to }, null, 2) + "\n";
   window.open(`https://github.com/${REPO}/new/${BRANCH}?filename=${encodeURIComponent("routes/" + id + ".json")}&value=${encodeURIComponent(body)}`, "_blank");
-  LS.set("ft_pending", [...LS.get("ft_pending", []), { id, name, from: ADD.from, to: ADD.to, ts: Date.now() }]);
+  LS.set("ft_pending", [...LS.get("ft_pending", []).filter(p => p.id !== id), { id, name, from: ADD.from, to: ADD.to, ts: Date.now() }]);
   msg.innerHTML = `<b>Почти готово.</b> На открывшейся странице GitHub нажмите зелёную кнопку <b>«Commit changes»</b> (и ещё раз в окошке).
     Через 1–2 минуты цены соберутся — обновите эту страницу, вкладка «${esc(name)}» появится. До этого она видна как «⏳».`;
-  TABS.push({ id, name, from: ADD.from, to: ADD.to, pending: true });
+  TABS = TABS.filter(t => t.id !== id).concat({ id, name, from: ADD.from, to: ADD.to, pending: true });
   drawTabs();
 });
 
