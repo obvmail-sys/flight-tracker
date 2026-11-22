@@ -102,6 +102,35 @@
          border-radius: 8px; padding: 6px 8px; font-size: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.15);
          display: none; z-index: 10; }
   [hidden] { display: none !important; }
+  .tabs { display: flex; gap: 6px; overflow-x: auto; margin-top: 14px; padding-bottom: 2px; }
+  .tabs button { white-space: nowrap; border-radius: 10px 10px 0 0; border-bottom-width: 3px; }
+  .tabs button.on { border-bottom-color: var(--out); font-weight: 600; }
+  .tabs button.pending { opacity: .6; }
+  .tabs button.add { font-weight: 700; }
+  #tabHead { margin-bottom: 12px; }
+  #tabHead h2 { font-size: 20px; }
+  .codes { font-size: 13px; margin-top: 4px; }
+  .codes b { font-weight: 600; }
+  .tstat { font-size: 13px; margin-top: 6px; }
+  .tstat.warn { color: #b45309; } .tstat.bad { color: var(--bad); }
+  .linkbtn { background: none; border: none; color: var(--muted); padding: 0; font-size: 12px; text-decoration: underline; }
+  .addform { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+  .ap { position: relative; }
+  .aplabel { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .apchips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+  .apchip { display: inline-flex; gap: 6px; align-items: center; border: 1px solid var(--line); border-radius: 99px;
+            padding: 3px 4px 3px 10px; font-size: 13px; background: var(--bg); }
+  .apchip.bad { border-color: var(--bad); color: var(--bad); }
+  .apchip button { border: none; background: none; padding: 0 6px; font-size: 14px; color: var(--muted); }
+  .apin { width: 100%; }
+  .sugg { position: absolute; left: 0; right: 0; z-index: 5; background: var(--card); border: 1px solid var(--line);
+          border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.12); max-height: 260px; overflow-y: auto; }
+  .sugg:empty { display: none; }
+  .sugg div { padding: 8px 10px; cursor: pointer; font-size: 14px; border-bottom: 1px solid var(--line); }
+  .sugg div:hover { background: var(--bg); }
+  .near { font-size: 12px; margin-top: 6px; }
+  .near button { font-size: 12px; padding: 2px 8px; margin: 2px 4px 0 0; }
+  .addmsg { font-size: 13px; }
   @media (max-width: 600px) {
     .summary { grid-template-columns: repeat(3, 1fr); gap: 6px; }
     .stat { padding: 8px; font-size: 12px; }
@@ -114,19 +143,30 @@
   <h1>Цены на авиабилеты</h1>
   <div class="muted">Билеты в одну сторону, туда и обратно отдельно · данные Aviasales (кэш 2–7 дней), EUR</div>
 
-  <section class="card">
+  <nav class="tabs" id="tabs"></nav>
+
+  <section class="card" id="addPanel" hidden>
+    <div class="head"><h2>Новая вкладка</h2></div>
+    <div class="addform">
+      <label>Название <input id="addName" placeholder="например, Мюнхен" maxlength="40"></label>
+      <div class="ap" data-k="from"><div class="aplabel">Откуда <span class="muted">— один или несколько аэропортов</span></div>
+        <div class="apchips"></div><input class="apin" placeholder="город или код, например «хельс» или HEL" autocomplete="off"><div class="sugg"></div></div>
+      <div class="ap" data-k="to"><div class="aplabel">Куда</div>
+        <div class="apchips"></div><input class="apin" placeholder="город или код, например «барс» или BCN" autocomplete="off"><div class="sugg"></div><div class="near muted"></div></div>
+      <div class="addmsg muted" id="addMsg"></div>
+      <div class="dayrow"><button type="button" class="primary" id="addSave">Сохранить на GitHub</button><button type="button" id="addCancel">Отмена</button></div>
+    </div>
+  </section>
+
+  <section class="card" id="mainCard">
+    <div id="tabHead"></div>
     <form id="form">
-      <label>Откуда <input class="code" id="from" list="codes" maxlength="3" required></label>
-      <button type="button" id="swap" title="Поменять местами">⇄</button>
-      <label>Куда <input class="code" id="to" list="codes" maxlength="3" required></label>
       <label>Даты вылета
         <select id="window"></select>
       </label>
       <label>Пересадки
         <select id="tr"><option value="">Любые</option><option value="0">Только прямые</option><option value="1">Не больше 1</option></select>
       </label>
-      <button class="primary" type="submit">Показать</button>
-      <datalist id="codes"></datalist>
     </form>
     <div class="days">
       <div class="dayrow"><button type="button" id="matchBtn">⚽ Выходные под матч</button><button type="button" id="allDays">Все дни</button></div>
@@ -154,7 +194,19 @@ const fmtDur = m => m ? `${Math.floor(m / 60)} ч ${String(m % 60).padStart(2, "
 const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 
-let ALL = [], LAST = null, ROUTES = [], CFG = {};
+let ALL = [], LAST = null, CFG = {}, TABS = [], TAB = null, NAMES = {};
+const REPO = (() => {
+  const m = location.hostname.match(/^([^.]+)\.github\.io$/), name = location.pathname.split("/").filter(Boolean)[0];
+  return m && name ? `${m[1]}/${name}` : "obvmail-sys/flight-tracker";
+})();
+let BRANCH = "claude/flight-price-tracker-hel-bcn-228c06";
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+const legsOf = t => t.legs?.length ? t.legs : t.from.flatMap(o => t.to.filter(d => d !== o).flatMap(d => [`${o}-${d}`, `${d}-${o}`]));
+const isMulti = () => TAB && (TAB.from.length > 1 || TAB.to.length > 1);
+const codeName = c => NAMES[c] ? `${NAMES[c][1] || NAMES[c][0]}` : "";
 // Фильтр дней недели (0 = вс … 6 = сб). Пустое множество = все дни.
 const WD = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"], WD_ORDER = [1, 2, 3, 4, 5, 6, 0];
 const MATCH = { out: [5, 6], back: [0, 1] };  // туда пт/сб, обратно вс/пн
@@ -173,75 +225,134 @@ const sortState = {};
 
 async function load() {
   const bust = "?t=" + Date.now();
-  const [prices, last] = await Promise.all([
-    fetch("data/prices.json" + bust).then(r => r.json()),
-    fetch("data/last_run.json" + bust).then(r => r.ok ? r.json() : null).catch(() => null),
-  ]);
-  ALL = prices.filter(r => r.airline !== undefined || r.type === undefined); // только записи «в одну сторону»
-  LAST = last;
-  CFG = last?.config || {};
-  ROUTES = CFG.routes || [{ origin: "HEL", destination: "BCN" }];
+  LAST = await fetch("data/last_run.json" + bust).then(r => r.ok ? r.json() : null).catch(() => null);
+  CFG = LAST?.config || {};
+  NAMES = LAST?.names || {};
+  TABS = LAST?.tabs?.length ? LAST.tabs
+    : (CFG.routes || [{ origin: "HEL", destination: "BCN" }]).map(r => ({ id: "hel-bcn", name: "Барселона", from: [r.origin], to: [r.destination] }));
+  // вкладки, сохранённые с сайта, но ещё не собранные (ждут коммита/сбора)
+  const pend = LS.get("ft_pending", []).filter(p => !TABS.some(t => t.id === p.id) && Date.now() - p.ts < 3 * DAY);
+  LS.set("ft_pending", pend);
+  TABS = TABS.concat(pend.map(p => ({ ...p, pending: true })));
+  fetch(`https://api.github.com/repos/${REPO}`).then(r => r.ok ? r.json() : null).then(j => { if (j?.default_branch) BRANCH = j.default_branch; }).catch(() => {});
 
-  const codes = [...new Set(ROUTES.flatMap(r => [r.origin, r.destination]))].sort();
-  $("codes").innerHTML = codes.map(c => `<option value="${c}">`).join("");
-
-  const cmin = CFG.collect_days_min ?? 0, cmax = CFG.collect_days_max ?? 90;
-  // по умолчанию — всё собранное окно (от сегодня на ~3 месяца), плюс помесячные срезы
+  const cmin = CFG.collect_days_min ?? 0, cmax = CFG.collect_days_max ?? 180;
   const span = cmax - cmin, spanTxt = span % 30 === 0 ? `${span / 30} мес.` : `${span} дней`;
   let opts = `<option value="${cmin}-${cmax}">все: сегодня + ${spanTxt}</option>`;
   for (let a = cmin, i = 1; a < cmax; a += 30, i++) opts += `<option value="${a}-${Math.min(a + 30, cmax)}">${i}-й месяц (через ${a}–${Math.min(a + 30, cmax)} дней)</option>`;
   $("window").innerHTML = opts;
 
+  // вкладка: из адреса (?tab=, или старые ?from=&to=), иначе последняя открытая, иначе первая
   const p = new URLSearchParams(location.search);
-  $("from").value = (p.get("from") || ROUTES[0].origin).toUpperCase();
-  $("to").value = (p.get("to") || ROUTES[0].destination).toUpperCase();
-  $("tr").value = p.get("tr") || "";
-  for (const k of ["out", "back"]) DAYS[k] = new Set((p.get(k) || "").split("").filter(c => /[0-6]/.test(c)).map(Number));
+  let id = p.get("tab");
+  if (!id && p.get("from")) id = TABS.find(t => t.from.includes(p.get("from").toUpperCase()) && t.to.includes((p.get("to") || "").toUpperCase()))?.id;
+  if (!TABS.some(t => t.id === id)) id = LS.get("ft_tab", null);
+  if (!TABS.some(t => t.id === id)) id = TABS[0]?.id;
+  const urlState = p.get("tab") ? { w: p.get("w"), tr: p.get("tr") || "", out: p.get("out") || "", back: p.get("back") || "" } : null;
+  await openTab(id, urlState);
+}
+
+// ---------- вкладки
+const legCache = {};
+let oldPrices = null;
+async function loadLeg(leg) {
+  if (legCache[leg]) return legCache[leg];
+  const bust = "?t=" + Date.now();
+  let rows = await fetch(`data/legs/${leg}.json${bust}`).then(r => r.ok ? r.json() : null).catch(() => null);
+  if (!rows) {  // до первого сбора в новом формате — старый общий файл
+    oldPrices ||= await fetch("data/prices.json" + bust).then(r => r.ok ? r.json() : []).catch(() => []);
+    const [o, d] = leg.split("-");
+    rows = oldPrices.filter(r => r.origin === o && r.destination === d && r.airline !== undefined);
+  }
+  return (legCache[leg] = rows);
+}
+
+function saveTabState() {
+  if (!TAB) return;
+  LS.set("ft_state_" + TAB.id, { w: $("window").value, tr: $("tr").value, out: daysParam(DAYS.out), back: daysParam(DAYS.back) });
+}
+
+async function openTab(id, state = null) {
+  saveTabState();
+  TAB = TABS.find(t => t.id === id) || TABS[0];
+  LS.set("ft_tab", TAB.id);
+  const st = state || LS.get("ft_state_" + TAB.id, {});
+  if (st.w && [...$("window").options].some(o => o.value === st.w)) $("window").value = st.w; else $("window").selectedIndex = 0;
+  $("tr").value = st.tr || "";
+  for (const k of ["out", "back"]) DAYS[k] = new Set((st[k] || "").split("").filter(c => /[0-6]/.test(c)).map(Number));
   drawDayChips();
+  drawTabs();
+  $("status").textContent = "Загрузка…";
+  ALL = (await Promise.all(legsOf(TAB).map(loadLeg))).flat();
   show();
 }
 
-function show() {
-  const from = $("from").value.trim().toUpperCase(), to = $("to").value.trim().toUpperCase();
-  const w = $("window").value, tr = $("tr").value;
-  history.replaceState(null, "", `?from=${from}&to=${to}&w=${w}${tr ? "&tr=" + tr : ""}` +
-    (DAYS.out.size ? "&out=" + daysParam(DAYS.out) : "") + (DAYS.back.size ? "&back=" + daysParam(DAYS.back) : ""));
+function drawTabs() {
+  $("tabs").innerHTML = TABS.map(t => `<button type="button" data-tab="${esc(t.id)}" class="${t.id === TAB?.id ? "on" : ""}${t.pending ? " pending" : ""}">${t.pending ? "⏳ " : ""}${esc(t.name)}</button>`).join("")
+    + `<button type="button" class="add" id="addTab" title="Новая вкладка">＋</button>`;
+}
 
-  const st = $("status"); st.classList.remove("err"); st.title = "";
-  const tracked = ROUTES.some(r => (r.origin === from && r.destination === to) || (r.origin === to && r.destination === from));
-  if (!tracked) {
-    $("dirs").innerHTML = "";
-    st.classList.add("err");
-    st.innerHTML = `Маршрут ${esc(from)} ⇄ ${esc(to)} не отслеживается. Отслеживаемые: ${ROUTES.map(r => `<a href="?from=${r.origin}&to=${r.destination}">${r.origin} ⇄ ${r.destination}</a>`).join(", ")}.
-      Чтобы добавить маршрут, допишите его в <code>routes</code> в config.json — данные появятся после следующего сбора (каждые 4 часа).`;
-    return;
+function drawTabHead() {
+  const t = TAB, ls = LAST?.tabs?.find(x => x.id === t.id);
+  const codes = arr => arr.map(c => `<b>${esc(c)}</b>${codeName(c) ? " " + esc(codeName(c)) : ""}`).join(", ");
+  let stat = "", cls = "";
+  if (t.pending || !ls) { stat = "⏳ Ждёт первого сбора — обычно 1–2 минуты после «Commit changes» на GitHub. Потом обновите страницу."; cls = "warn"; }
+  else {
+    const parts = legsOf(ls).map(l => `${l.replace("-", "→")} ${ls.found?.[l] ?? 0}`);
+    const empty = legsOf(ls).filter(l => !(ls.found?.[l]));
+    if (ls.unknown?.length) { stat = `❌ Неизвестные коды: ${ls.unknown.join(", ")} — их нет в справочнике аэропортов, по ним поиск не идёт. `; cls = "bad"; }
+    if (ls.error) { stat += `❌ Файл вкладки ${ls.error}. `; cls = "bad"; }
+    if (ls.failed_legs?.length) { stat += `❌ Ошибка API по: ${ls.failed_legs.join(", ")}. `; cls = "bad"; }
+    if (!cls && empty.length === legsOf(ls).length && legsOf(ls).length) { stat = "⚠️ Коды правильные, API отвечает, но цен в кэше Aviasales по этому направлению пока нет. "; cls = "warn"; }
+    stat += `${cls ? "" : "✅ "}Найдено при последней проверке: ${parts.join(" · ") || "—"}`;
   }
+  $("tabHead").innerHTML = `<div class="head"><h2>${esc(t.name)}</h2></div>
+    <div class="codes">Откуда: ${codes(t.from)}<br>Куда: ${codes(t.to)}</div>
+    <div class="tstat ${cls}">${stat}</div>
+    <div style="margin-top:6px"><button type="button" class="linkbtn" id="delTab">Удалить вкладку</button></div>`;
+  $("delTab").addEventListener("click", () => {
+    if (t.pending) { LS.set("ft_pending", LS.get("ft_pending", []).filter(p => p.id !== t.id)); location.reload(); return; }
+    if (!confirm(`Удалить вкладку «${t.name}»?\n\nОткроется GitHub — там нажмите зелёную кнопку «Commit changes».`)) return;
+    window.open(`https://github.com/${REPO}/delete/${BRANCH}/routes/${encodeURIComponent(t.id)}.json`, "_blank");
+  });
+}
+
+function show() {
+  if (!TAB) return;
+  const w = $("window").value, tr = $("tr").value;
+  history.replaceState(null, "", `?tab=${encodeURIComponent(TAB.id)}&w=${w}${tr ? "&tr=" + tr : ""}` +
+    (DAYS.out.size ? "&out=" + daysParam(DAYS.out) : "") + (DAYS.back.size ? "&back=" + daysParam(DAYS.back) : ""));
+  saveTabState();
+  drawTabHead();
 
   const [d0, d1] = w.split("-").map(Number);
   const today = new Date(new Date().toDateString());
   const wFrom = iso(addDays(today, d0)), wTo = iso(addDays(today, d1));
 
+  const st = $("status"); st.classList.remove("err"); st.title = "";
   let s = LAST ? `Последняя проверка: ${fmtDT(LAST.checked_at)}` : "";
   s += ` · вылеты ${fmtDate(wFrom)} – ${fmtDate(wTo)}`;
-  if (LAST?.errors?.length) { s += ` · ошибок API: ${LAST.errors.length}`; st.title = LAST.errors.join("\n"); st.classList.add("err"); }
   st.textContent = s;
 
+  const F = TAB.from, T = TAB.to, label = arr => arr.join(", ");
   $("dirs").innerHTML = "";
-  renderWeekends(from, to, wFrom, wTo, tr);
-  const a = renderDirection(from, to, "Туда", "var(--out)", wFrom, wTo, tr, DAYS.out);
-  const b = renderDirection(to, from, "Обратно", "var(--back)", wFrom, wTo, tr, DAYS.back);
+  renderWeekends(F, T, wFrom, wTo, tr);
+  const a = renderDirection(F, T, "Туда", "var(--out)", wFrom, wTo, tr, DAYS.out);
+  const b = renderDirection(T, F, "Обратно", "var(--back)", wFrom, wTo, tr, DAYS.back);
   renderCompare(a, b, wFrom, wTo);
 }
 
-function currentRows(o, d, wFrom, wTo, tr, days = null) {
-  const leg = ALL.filter(r => r.origin === o && r.destination === d);
-  const latest = leg.reduce((m, r) => (r.last_seen_at > m ? r.last_seen_at : m), "");
-  const rows = leg.filter(r => r.last_seen_at === latest && r.departure_date >= wFrom && r.departure_date <= wTo
+function currentRows(os, ds, wFrom, wTo, tr, days = null) {
+  const leg = ALL.filter(r => os.includes(r.origin) && ds.includes(r.destination));
+  const latest = {};  // последняя проверка — отдельно по каждому направлению (паре аэропортов)
+  for (const r of leg) { const k = r.origin + r.destination; if (!latest[k] || r.last_seen_at > latest[k]) latest[k] = r.last_seen_at; }
+  const rows = leg.filter(r => r.last_seen_at === latest[r.origin + r.destination] && r.departure_date >= wFrom && r.departure_date <= wTo
                                && (tr === "" || (r.transfers ?? 9) <= +tr)
                                && (!days || !days.size || days.has(wday(r.departure_date))));
   for (const r of rows) {  // изменение цены на ту же дату с прошлых проверок
     // тот же рейс (авиакомпания + номер) на ту же дату, найденный раньше
-    const prev = leg.filter(x => x !== r && x.departure_date === r.departure_date && x.checked_at < r.checked_at
+    const prev = leg.filter(x => x !== r && x.origin === r.origin && x.destination === r.destination
+                                 && x.departure_date === r.departure_date && x.checked_at < r.checked_at
                                  && x.airline === r.airline && x.flight_number === r.flight_number
                                  && (x.transfers ?? 0) === (r.transfers ?? 0))
       .reduce((m, x) => (!m || x.last_seen_at > m.last_seen_at ? x : m), null);
@@ -327,7 +438,7 @@ function curvePaths(curve, X, Y, color, width = 2) {
 
 function renderDirection(o, d, title, color, wFrom, wTo, tr, days) {
   const rows = currentRows(o, d, wFrom, wTo, tr, days);
-  const id = `${o}${d}`;
+  const id = `${TAB.id}:${title}`;
   const sec = document.createElement("section");
   sec.className = "card";
   const best = [...rows].sort((a, b) => a.price_eur - b.price_eur)[0];
@@ -340,7 +451,7 @@ function renderDirection(o, d, title, color, wFrom, wTo, tr, days) {
               <div class="muted">за 10 дней · ${word}</div>`;
   }
   sec.innerHTML = `
-    <div class="head"><span class="bar" style="background:${color}"></span><h2>${title}: ${o} → ${d}</h2>${days && days.size ? `<span class="muted">· только ${WD_ORDER.filter(x => days.has(x)).map(x => WD[x]).join(", ")}</span>` : ""}</div>
+    <div class="head"><span class="bar" style="background:${color}"></span><h2>${title}: ${o.join(", ")} → ${d.join(", ")}</h2>${days && days.size ? `<span class="muted">· только ${WD_ORDER.filter(x => days.has(x)).map(x => WD[x]).join(", ")}</span>` : ""}</div>
     <div class="summary">
       <div class="stat"><div class="muted">Самая низкая цена</div>` + (best
         ? `<div class="big">${fmtEur(best.price_eur)}</div><div class="muted">${fmtDate(best.departure_date)} · ${esc(best.airline)}</div>`
@@ -538,7 +649,7 @@ function tableHtml(rows, { sortable = false, minByDate = {} } = {}) {
       ${th("duration_min", "В пути", "num")}${th("", "Купить")}
     </tr></thead><tbody>` +
     (rows.map(r => `<tr class="${r.price_eur === minByDate[r.departure_date] ? "cheap" : ""}">
-      <td>${fmtDate(r.departure_date)}</td>
+      <td>${fmtDate(r.departure_date)}${isMulti() ? `<div class="muted" style="font-size:11px">${r.origin}→${r.destination}</div>` : ""}</td>
       <td>${esc(r.departure_time || "")}</td>
       <td class="num"><b>${fmtEur(r.price_eur)}</b></td>
       <td class="num ${r.change < 0 ? "down" : r.change > 0 ? "up" : "muted"}">${r.change ? (r.change > 0 ? "+" : "−") + Math.abs(Math.round(r.change)) : "·"}</td>
@@ -581,6 +692,12 @@ const plural = (n, one = "", few = "а", many = "ов") =>
   (n % 10 === 1 && n % 100 !== 11) ? one : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) ? few : many;
 
 $("form").addEventListener("submit", e => { e.preventDefault(); show(); });
+$("tabs").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.id === "addTab") { openAdd(); return; }
+  $("addPanel").hidden = true; $("mainCard").hidden = false;
+  openTab(b.dataset.tab);
+});
 $("window").addEventListener("change", show);
 $("tr").addEventListener("change", show);
 document.querySelectorAll(".chipset").forEach(cs => cs.addEventListener("click", e => {
@@ -623,11 +740,11 @@ function renderWeekends(from, to, wFrom, wTo, tr) {
   const sec = document.createElement("section");
   sec.className = "card";
   const leg = (r, dir) => r
-    ? `${dir} ${fmtDate(r.departure_date)} ${esc(r.departure_time || "")} · ${fmtEur(r.price_eur)} · ${esc(r.airline || "")}${r.transfers ? `, ${r.transfers} пер.` : ", прямой"}` +
+    ? `${dir} ${fmtDate(r.departure_date)} ${esc(r.departure_time || "")}${isMulti() ? ` · ${r.origin}→${r.destination}` : ""} · ${fmtEur(r.price_eur)} · ${esc(r.airline || "")}${r.transfers ? `, ${r.transfers} пер.` : ", прямой"}` +
       (r.link ? ` <a href="${esc(AVIASALES + r.link)}" target="_blank" rel="noopener">купить</a>` : "")
     : `${dir} — нет цены в кэше`;
   sec.innerHTML = `
-    <div class="head"><span class="bar" style="background:var(--good)"></span><h2>⚽ Выходные под матч: ${from} ⇄ ${to}</h2></div>
+    <div class="head"><span class="bar" style="background:var(--good)"></span><h2>⚽ Выходные под матч</h2></div>
     <div class="muted hint" style="margin-top:4px">Для каждого воскресенья: туда в пятницу или субботу, обратно в воскресенье или понедельник — 4 комбинации, сумма двух билетов в одну сторону.
       Полных вариантов: ${full.length} из ${weeks.length} выходных.</div>
     <div class="legend"><span><i class="dot" style="background:var(--good);opacity:.4"></i>Цена поездки (лучшая комбинация)</span><span><i class="curve" style="border-color:var(--good)"></i>Плавная кривая</span></div>
@@ -671,7 +788,6 @@ function renderWeekends(from, to, wFrom, wTo, tr) {
     d.open = true; d.scrollIntoView({ behavior: "smooth", block: "center" });
   }));
 }
-$("swap").addEventListener("click", () => { [$("from").value, $("to").value] = [$("to").value, $("from").value]; show(); });
 // На телефонах «resize» срабатывает при показе/скрытии адресной строки во время
 // прокрутки — перерисовываем только если реально изменилась ширина.
 let lastW = innerWidth;
@@ -690,6 +806,100 @@ document.addEventListener("mousemove", e => {
   tip.style.top = (e.clientY + 12) + "px";
 });
 
+
+
+// ---------- форма «Новая вкладка»
+let AIRPORTS = null;            // [код, аэропорт, город, страна, lat, lon]
+const ADD = { from: [], to: [] };
+async function loadAirports() {
+  if (AIRPORTS) return AIRPORTS;
+  const j = await fetch("data/airports.json").then(r => r.ok ? r.json() : null).catch(() => null);
+  AIRPORTS = j?.airports || [];
+  return AIRPORTS;
+}
+const apByCode = c => AIRPORTS?.find(a => a[0] === c);
+const km = (a, b) => {
+  const R = 6371, r = Math.PI / 180, dLat = (b[4] - a[4]) * r, dLon = (b[5] - a[5]) * r;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[4] * r) * Math.cos(b[4] * r) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+};
+const apText = a => `${a[0]} — ${a[1]}${a[2] && !a[1].includes(a[2]) ? ", " + a[2] : ""}${a[3] ? ", " + a[3] : ""}`;
+
+async function openAdd() {
+  $("mainCard").hidden = true; $("dirs").hidden = true; $("addPanel").hidden = false;
+  ADD.from = [...(TAB?.from || ["HEL"])]; ADD.to = [];
+  $("addName").value = ""; $("addMsg").textContent = "Загружаю справочник аэропортов…";
+  drawAdd();
+  await loadAirports();
+  $("addMsg").textContent = AIRPORTS.length ? "" : "Справочник аэропортов ещё не загружен (появится после следующего сбора) — можно вписать 3-буквенные коды, сборщик их проверит.";
+  drawAdd();
+  document.querySelector('.ap[data-k="to"] .apin').focus();
+}
+function closeAdd() { $("addPanel").hidden = true; $("mainCard").hidden = false; $("dirs").hidden = false; }
+
+function drawAdd() {
+  for (const k of ["from", "to"]) {
+    const box = document.querySelector(`.ap[data-k="${k}"]`);
+    box.querySelector(".apchips").innerHTML = ADD[k].map(c => {
+      const a = apByCode(c), bad = AIRPORTS?.length && !a;
+      return `<span class="apchip${bad ? " bad" : ""}">${esc(a ? apText(a) : c + (bad ? " — нет такого кода" : ""))}<button type="button" data-rm="${c}" aria-label="Убрать">✕</button></span>`;
+    }).join("") || '<span class="muted" style="font-size:13px">не выбрано</span>';
+  }
+  // аэропорты рядом с выбранными «Куда» (до 150 км) — для групп вроде BCN + GRO + REU
+  const near = document.querySelector('.ap[data-k="to"] .near');
+  const sel = ADD.to.map(apByCode).filter(Boolean);
+  const cand = !AIRPORTS?.length ? [] : AIRPORTS.filter(a => !ADD.to.includes(a[0]) && (a[4] || a[5]) && sel.some(b => km(a, b) < 150))
+    .map(a => ({ a, d: Math.min(...sel.map(b => km(a, b))) })).sort((x, y) => x.d - y.d).slice(0, 6);
+  near.innerHTML = cand.length ? "Рядом: " + cand.map(({ a, d }) => `<button type="button" data-add="${a[0]}">+ ${a[0]} ${esc(a[2] || a[1])} · ${Math.round(d)} км</button>`).join("") : "";
+}
+
+function suggest(input) {
+  const box = input.closest(".ap"), k = box.dataset.k, q = input.value.trim().toLowerCase(), out = box.querySelector(".sugg");
+  if (q.length < 2) { out.innerHTML = ""; return; }
+  let list = [];
+  if (AIRPORTS?.length) {
+    const up = q.toUpperCase();
+    const score = a => a[0] === up ? 0 : a[0].startsWith(up) ? 1 : (a[2] || "").toLowerCase().startsWith(q) ? 2 : a[1].toLowerCase().startsWith(q) ? 3 :
+      ((a[2] || "").toLowerCase().includes(q) || a[1].toLowerCase().includes(q) || (a[3] || "").toLowerCase().startsWith(q)) ? 4 : 9;
+    list = AIRPORTS.map(a => [score(a), a]).filter(x => x[0] < 9 && !ADD[k].includes(x[1][0])).sort((x, y) => x[0] - y[0]).slice(0, 8).map(x => x[1]);
+    out.innerHTML = list.map(a => `<div data-pick="${a[0]}">${esc(apText(a))}</div>`).join("") || '<div class="muted">ничего не нашлось</div>';
+  } else if (/^[a-z]{3}$/i.test(q)) {
+    out.innerHTML = `<div data-pick="${q.toUpperCase()}">${q.toUpperCase()} — добавить (проверю при сборе)</div>`;
+  }
+}
+
+document.querySelectorAll(".ap").forEach(box => {
+  const k = box.dataset.k, input = box.querySelector(".apin");
+  input.addEventListener("input", () => suggest(input));
+  input.addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); box.querySelector("[data-pick]")?.click(); }
+  });
+  box.addEventListener("click", e => {
+    const pick = e.target.closest("[data-pick]"), rm = e.target.closest("[data-rm]"), add = e.target.closest("[data-add]");
+    if (pick) { ADD[k].push(pick.dataset.pick); input.value = ""; box.querySelector(".sugg").innerHTML = ""; drawAdd(); input.focus(); }
+    if (rm) { ADD[k] = ADD[k].filter(c => c !== rm.dataset.rm); drawAdd(); }
+    if (add) { ADD[k].push(add.dataset.add); drawAdd(); }
+  });
+});
+document.addEventListener("click", e => { if (!e.target.closest(".ap")) document.querySelectorAll(".sugg").forEach(x => x.innerHTML = ""); });
+$("addCancel").addEventListener("click", closeAdd);
+$("addSave").addEventListener("click", () => {
+  const name = $("addName").value.trim() || (ADD.to.map(c => apByCode(c)?.[2] || c)[0] ?? "");
+  const msg = $("addMsg");
+  const bad = AIRPORTS?.length ? [...ADD.from, ...ADD.to].filter(c => !apByCode(c)) : [];
+  if (!ADD.from.length || !ADD.to.length) { msg.textContent = "Выберите хотя бы один аэропорт «Откуда» и один «Куда»."; return; }
+  if (bad.length) { msg.textContent = `Уберите неизвестные коды: ${bad.join(", ")}.`; return; }
+  if (!name) { msg.textContent = "Впишите название вкладки."; return; }
+  let id = (ADD.from.join("-") + "_" + ADD.to.join("-")).toLowerCase(), base = id, i = 2;
+  while (TABS.some(t => t.id === id)) id = `${base}-${i++}`;
+  const body = JSON.stringify({ name, from: ADD.from, to: ADD.to }, null, 2) + "\n";
+  window.open(`https://github.com/${REPO}/new/${BRANCH}?filename=${encodeURIComponent("routes/" + id + ".json")}&value=${encodeURIComponent(body)}`, "_blank");
+  LS.set("ft_pending", [...LS.get("ft_pending", []), { id, name, from: ADD.from, to: ADD.to, ts: Date.now() }]);
+  msg.innerHTML = `<b>Почти готово.</b> На открывшейся странице GitHub нажмите зелёную кнопку <b>«Commit changes»</b> (и ещё раз в окошке).
+    Через 1–2 минуты цены соберутся — обновите эту страницу, вкладка «${esc(name)}» появится. До этого она видна как «⏳».`;
+  TABS.push({ id, name, from: ADD.from, to: ADD.to, pending: true });
+  drawTabs();
+});
 
 load().catch(e => { $("status").textContent = "Ошибка загрузки данных: " + e.message; $("status").classList.add("err"); });
 </script>

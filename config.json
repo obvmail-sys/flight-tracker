@@ -1,7 +1,4 @@
 {
-  "routes": [
-    { "origin": "HEL", "destination": "BCN" }
-  ],
   "collect_days_min": 0,
   "collect_days_max": 180
 }
