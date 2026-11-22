@@ -149,8 +149,10 @@ const fmtEur = v => "€" + Math.round(v).toLocaleString("ru-RU");
 const fmtDate = s => new Date(s + "T00:00:00").toLocaleDateString("ru-RU", { weekday: "short", day: "numeric", month: "short" });
 const fmtDT = s => new Date(s).toLocaleString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 const fmtDur = m => m ? `${Math.floor(m / 60)} ч ${String(m % 60).padStart(2, "0")} м` : "";
-const iso = d => d.toISOString().slice(0, 10);
-const addDays = (d, n) => new Date(+d + n * DAY);
+// Даты считаем в местном времени браузера (не через UTC: в Финляндии UTC+2,
+// и toISOString() сдвигал полночь на предыдущий день).
+const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 
 let ALL = [], LAST = null, ROUTES = [], CFG = {};
 // Фильтр дней недели (0 = вс … 6 = сб). Пустое множество = все дни.
