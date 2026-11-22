@@ -1,0 +1,55 @@
+name: Ticker (every 4h)
+
+# Расписание GitHub ненадёжно (запуски по cron могут не срабатывать часами),
+# поэтому держим цепочку: запустить сбор → подождать 4 часа → запустить себя заново.
+# workflow_dispatch через GITHUB_TOKEN разрешён и создаёт новый запуск.
+# cron здесь — только запасной способ поднять цепочку, если она оборвалась:
+# лишние запуски встают в очередь (concurrency) и не дублируют цепочку.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "41 */2 * * *"
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: ticker
+  cancel-in-progress: false
+
+env:
+  INTERVAL_SEC: "14400"   # 4 часа
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - name: Start price fetch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl -fsS -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/fetch.yml/dispatches" \
+            -d "{\"ref\":\"${{ github.ref_name }}\"}"
+          echo "Сбор цен запущен"
+
+      - name: Wait
+        run: sleep "$INTERVAL_SEC"
+
+      - name: Schedule next tick
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for i in 1 2 3; do
+            curl -fsS -X POST \
+              -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${{ github.repository }}/actions/workflows/ticker.yml/dispatches" \
+              -d "{\"ref\":\"${{ github.ref_name }}\"}" && exit 0
+            sleep 30
+          done
+          exit 1
