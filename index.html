@@ -7,11 +7,11 @@
 <style>
   :root {
     --bg: #f6f7f9; --card: #fff; --text: #1b1f24; --muted: #667085; --line: #e3e6ea;
-    --out: #2563eb; --back: #d9480f; --trend: #1b1f24; --good: #15803d; --bad: #b91c1c;
+    --out: #2563eb; --back: #d9480f; --out-dark: #1e3a8a; --back-dark: #9a3412; --trend: #1b1f24; --good: #15803d; --bad: #b91c1c;
   }
   @media (prefers-color-scheme: dark) {
     :root { --bg: #0f1216; --card: #171b21; --text: #e6e8eb; --muted: #98a2b3; --line: #2a3038;
-            --out: #60a5fa; --back: #fb923c; --trend: #e6e8eb; --good: #4ade80; --bad: #f87171; }
+            --out: #60a5fa; --back: #fb923c; --out-dark: #bfdbfe; --back-dark: #fed7aa; --trend: #e6e8eb; --good: #4ade80; --bad: #f87171; }
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text);
@@ -222,9 +222,9 @@ function trend(rows) {
 
 // LOWESS: локальная взвешенная линейная регрессия (трикуб-веса) по самой низкой цене
 // каждого дня + 2 итерации устойчивости (бисквадрат) против одиночных выбросов.
-// Возвращает точки кривой с шагом в 1 день в пределах дат, где есть данные;
-// sparse = рядом нет данных (> GAP дней до ближайшей точки) — такие куски рисуем бледно.
-const LOWESS_FRAC = 0.35, GAP = 7, MIN_BW = 10;  // MIN_BW — минимальная ширина окна сглаживания, дней
+// Возвращает сглаженные значения в датах, где есть данные; между ними кривую
+// проводит монотонный кубический сплайн (плавно и без выбросов, в т.ч. через пропуски).
+const LOWESS_FRAC = 0.35, MIN_BW = 10;  // MIN_BW — минимальная ширина окна сглаживания, дней
 function lowess(rows) {
   const pts = minPerDate(rows).sort((a, b) => a.x - b.x);
   const n = pts.length;
@@ -252,29 +252,31 @@ function lowess(rows) {
     const med = [...res.map(Math.abs)].sort((a, b) => a - b)[Math.floor(n / 2)] || 1;
     robust = res.map(r => { const u = r / (6 * med); return Math.abs(u) < 1 ? (1 - u * u) ** 2 : 0; });
   }
-  const out = [];
-  for (let x = pts[0].x; x <= pts[n - 1].x + 1e-9; x += 1) {
-    const y = fitAt(x);
-    if (y == null) continue;
-    const near = Math.min(...pts.map(p => Math.abs(p.x - x)));
-    out.push({ x, y: Math.max(0, y), sparse: near > GAP });
-  }
-  return out;
+  return pts.map(p => ({ x: p.x, y: Math.max(0, fitAt(p.x) ?? p.y) }));
 }
 
-// Ломаная кривой: сплошные куски там, где есть данные, бледные — где данных нет.
-function curvePaths(curve, X, Y, color, width = 2.5) {
-  if (!curve || !curve.length) return "";
-  let g = "", seg = [], sparse = curve[0].sparse;
-  const flush = () => {
-    if (seg.length > 1) g += `<polyline fill="none" stroke="${color}" stroke-width="${width}" stroke-linejoin="round" stroke-linecap="round"
-      ${sparse ? 'stroke-opacity=".3" stroke-dasharray="2 5"' : ""} points="${seg.map(p => `${X(p.x * DAY).toFixed(1)},${Y(p.y).toFixed(1)}`).join(" ")}"/>`;
-  };
-  for (const p of curve) {
-    if (p.sparse !== sparse) { seg.push(p); flush(); seg = [p]; sparse = p.sparse; } else seg.push(p);
+// Плавная кривая через сглаженные точки: монотонный кубический сплайн (Фритч–Карлсон),
+// одна непрерывная линия. Светлая подложка отделяет её от точек.
+function curvePaths(curve, X, Y, color, width = 2) {
+  if (!curve || curve.length < 2) return "";
+  const xs = curve.map(p => p.x), ys = curve.map(p => p.y), n = xs.length;
+  const d = [], m = new Array(n);
+  for (let i = 0; i < n - 1; i++) d.push((ys[i + 1] - ys[i]) / (xs[i + 1] - xs[i]));
+  m[0] = d[0]; m[n - 1] = d[n - 2];
+  for (let i = 1; i < n - 1; i++) m[i] = d[i - 1] * d[i] <= 0 ? 0 : (d[i - 1] + d[i]) / 2;
+  for (let i = 0; i < n - 1; i++) {
+    if (d[i] === 0) { m[i] = m[i + 1] = 0; continue; }
+    const a = m[i] / d[i], b = m[i + 1] / d[i], t = a * a + b * b;
+    if (t > 9) { const k = 3 / Math.sqrt(t); m[i] = k * a * d[i]; m[i + 1] = k * b * d[i]; }
   }
-  flush();
-  return g;
+  const P = (x, y) => `${X(x * DAY).toFixed(1)},${Y(y).toFixed(1)}`;
+  let path = `M${P(xs[0], ys[0])}`;
+  for (let i = 0; i < n - 1; i++) {
+    const h = xs[i + 1] - xs[i];
+    path += ` C${P(xs[i] + h / 3, ys[i] + m[i] * h / 3)} ${P(xs[i + 1] - h / 3, ys[i + 1] - m[i + 1] * h / 3)} ${P(xs[i + 1], ys[i + 1])}`;
+  }
+  return `<path d="${path}" fill="none" stroke="var(--card)" stroke-width="${width + 3}" stroke-linecap="round" stroke-opacity=".9"/>
+          <path d="${path}" fill="none" stroke="${color}" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round"/>`;
 }
 
 function renderDirection(o, d, title, color, wFrom, wTo, tr) {
@@ -302,7 +304,7 @@ function renderDirection(o, d, title, color, wFrom, wTo, tr) {
         <div class="muted">на ${((n) => n + " дат" + plural(n, "у", "ы", ""))(new Set(rows.map(r => r.departure_date)).size)}</div></div>
     </div>
     <div class="mstrip"></div>
-    <div class="legend"><span><i class="dot" style="background:${color}"></i>Цена рейса</span><span><i class="dash"></i>Линейный тренд</span><span><i class="curve" style="border-color:${color}"></i>Плавная кривая</span></div>
+    <div class="legend"><span><i class="dot" style="background:${color};opacity:.4"></i>Цена рейса</span><span><i class="dash"></i>Линейный тренд</span><span><i class="curve" style="border-color:${color === "var(--out)" ? "var(--out-dark)" : "var(--back-dark)"}"></i>Плавная кривая</span></div>
     <div class="chart"></div>
     <div class="hint muted">Нажмите на точку графика, чтобы увидеть рейсы этого дня</div>
     <div class="daybox" hidden></div>
@@ -389,12 +391,12 @@ function renderChart(el, rows, color, wFrom, wTo, t) {
     const tip = `${fmtDate(r.departure_date)} ${r.departure_time || ""}: ${fmtEur(r.price_eur)} · ${r.airline || ""}, пересадок ${r.transfers ?? "?"}`;
     const cx = X(+new Date(r.departure_date + "T00:00:00"));
     pointsSvg += r.price_eur > cap
-      ? `<path d="M${cx - 6} ${P.t + 10} L${cx + 6} ${P.t + 10} L${cx} ${P.t} Z" fill="${color}" data-date="${r.departure_date}" data-tip="${esc(tip + " (выше шкалы)")}"/>`
-      : `<circle cx="${cx}" cy="${Y(r.price_eur)}" r="5" fill="${color}" fill-opacity=".8" stroke="transparent" stroke-width="10" data-date="${r.departure_date}" data-tip="${esc(tip)}"/>`;
+      ? `<path d="M${cx - 6} ${P.t + 10} L${cx + 6} ${P.t + 10} L${cx} ${P.t} Z" fill="${color}" fill-opacity=".45" data-date="${r.departure_date}" data-tip="${esc(tip + " (выше шкалы)")}"/>`
+      : `<circle cx="${cx}" cy="${Y(r.price_eur)}" r="4.5" fill="${color}" fill-opacity=".3" stroke="transparent" stroke-width="10" data-date="${r.departure_date}" data-tip="${esc(tip)}"/>`;
   }
-  // кривая поверх прямой, точки — поверх кривой (их можно нажимать)
+  // светлые точки, поверх — насыщенная кривая (тёмный оттенок цвета направления)
   const cv = lowess(rows)?.map(p => ({ ...p, y: Math.min(p.y, y1) }));
-  g += curvePaths(cv, X, Y, color) + pointsSvg;
+  g += pointsSvg + `<g pointer-events="none">${curvePaths(cv, X, Y, color === "var(--out)" ? "var(--out-dark)" : "var(--back-dark)")}</g>`;
   el.innerHTML = `<svg width="100%" viewBox="0 0 ${W} ${H}" role="img" aria-label="Цена по дате вылета">${g}</svg>`;
 }
 
@@ -424,8 +426,8 @@ function renderCompare(a, b, wFrom, wTo) {
     const x0 = +new Date(wFrom + "T00:00:00"), x1 = +new Date(wTo + "T00:00:00");
     const lineY = t => t ? [t.k * (x0 / DAY) + t.b, t.k * (x1 / DAY) + t.b] : [];
     const vals = [
-      ...(cmpShow.outCurve && ca ? ca.filter(p => !p.sparse).map(p => p.y) : []),
-      ...(cmpShow.backCurve && cb ? cb.filter(p => !p.sparse).map(p => p.y) : []),
+      ...(cmpShow.outCurve && ca ? ca.map(p => p.y) : []),
+      ...(cmpShow.backCurve && cb ? cb.map(p => p.y) : []),
       ...(cmpShow.outLine ? lineY(a.t) : []), ...(cmpShow.backLine ? lineY(b.t) : []),
     ];
     if (!vals.length) { el.innerHTML = '<div class="muted">Недостаточно данных для кривых (нужно хотя бы 4 даты в каждом направлении) — или все линии выключены.</div>'; return; }
