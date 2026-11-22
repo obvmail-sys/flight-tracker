@@ -86,8 +86,6 @@ def load_config(path: Path) -> dict:
         r["origin"], r["destination"] = r["origin"].upper(), r["destination"].upper()
     cfg.setdefault("collect_days_min", 0)
     cfg.setdefault("collect_days_max", 90)
-    cfg.setdefault("view_days_min", 60)
-    cfg.setdefault("view_days_max", 90)
     return cfg
 
 
