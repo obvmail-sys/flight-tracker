@@ -231,7 +231,11 @@ async function load() {
   TABS = LAST?.tabs?.length ? LAST.tabs
     : (CFG.routes || [{ origin: "HEL", destination: "BCN" }]).map(r => ({ id: "hel-bcn", name: "Барселона", from: [r.origin], to: [r.destination] }));
   // вкладки, сохранённые с сайта, но ещё не собранные (ждут коммита/сбора)
-  const pend = LS.get("ft_pending", []).filter(p => !TABS.some(t => t.id === p.id) && Date.now() - p.ts < 3 * DAY);
+  // ожидающая убирается, если уже есть сохранённая вкладка с тем же id или с теми же аэропортами
+  const sameSet = (a, b) => a.length === b.length && a.every(x => b.includes(x));
+  const pend = LS.get("ft_pending", []).filter(p => Date.now() - p.ts < 3 * DAY &&
+    !TABS.some(t => t.id === p.id || (sameSet(t.from, p.from) && sameSet(t.to, p.to))))
+    .filter((p, i, arr) => arr.findIndex(q => sameSet(q.from, p.from) && sameSet(q.to, p.to)) === i);
   LS.set("ft_pending", pend);
   TABS = TABS.concat(pend.map(p => ({ ...p, pending: true })));
   fetch(`https://api.github.com/repos/${REPO}`).then(r => r.ok ? r.json() : null).then(j => { if (j?.default_branch) BRANCH = j.default_branch; }).catch(() => {});
