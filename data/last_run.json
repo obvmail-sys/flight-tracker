@@ -1,13 +1,13 @@
 {
-  "checked_at": "2026-11-22T09:51:38Z",
+  "checked_at": "2026-11-22T10:12:53Z",
   "ok": true,
-  "requests": 16,
+  "requests": 28,
   "errors": [],
   "window": {
     "from": "2026-11-22",
-    "to": "2027-02-20"
+    "to": "2027-05-21"
   },
-  "found": 117,
+  "found": 137,
   "config": {
     "routes": [
       {
@@ -16,10 +16,8 @@
       }
     ],
     "collect_days_min": 0,
-    "collect_days_max": 90,
-    "view_days_min": 60,
-    "view_days_max": 90
+    "collect_days_max": 180
   },
-  "added": 6,
-  "total_records": 128
+  "added": 18,
+  "total_records": 146
 }
