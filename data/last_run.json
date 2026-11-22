@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-11-22T14:52:52Z",
+  "checked_at": "2026-11-22T18:28:47Z",
   "ok": true,
   "requests": 28,
   "errors": [],
@@ -7,17 +7,58 @@
     "from": "2026-11-22",
     "to": "2027-05-21"
   },
-  "found": 142,
+  "found": 141,
+  "added": 12,
   "config": {
-    "routes": [
-      {
-        "origin": "HEL",
-        "destination": "BCN"
-      }
-    ],
     "collect_days_min": 0,
     "collect_days_max": 180
   },
-  "added": 13,
-  "total_records": 159
+  "tabs": [
+    {
+      "id": "hel-bcn",
+      "name": "Барселона",
+      "from": [
+        "HEL"
+      ],
+      "to": [
+        "BCN"
+      ],
+      "unknown": [],
+      "legs": [
+        "HEL-BCN",
+        "BCN-HEL"
+      ],
+      "found": {
+        "HEL-BCN": 79,
+        "BCN-HEL": 62
+      },
+      "failed_legs": []
+    }
+  ],
+  "legs": {
+    "HEL-BCN": {
+      "found": 79,
+      "errors": 0,
+      "added": 12,
+      "total": 95
+    },
+    "BCN-HEL": {
+      "found": 62,
+      "errors": 0,
+      "added": 0,
+      "total": 76
+    }
+  },
+  "names": {
+    "BCN": [
+      "Эль-Прат",
+      "Барселона",
+      "Испания"
+    ],
+    "HEL": [
+      "Вантаа",
+      "Хельсинки",
+      "Финляндия"
+    ]
+  }
 }
