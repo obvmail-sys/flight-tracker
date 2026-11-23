@@ -188,6 +188,13 @@ const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "
 const fmtEur = v => "€" + Math.round(v).toLocaleString("ru-RU");
 const fmtDate = s => new Date(s + "T00:00:00").toLocaleDateString("ru-RU", { weekday: "short", day: "numeric", month: "short" });
 const fmtDT = s => new Date(s).toLocaleString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+// «сегодня в 20:54» / «вчера в 16:54» / «21 нояб. в 16:54»
+const relDT = s => {
+  const d = new Date(s), t = new Date(), y = addDays(t, -1), tm = addDays(t, 1);
+  const hm = d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+  const same = (a, b) => a.toDateString() === b.toDateString();
+  return `${same(d, t) ? "сегодня" : same(d, y) ? "вчера" : same(d, tm) ? "завтра" : d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" })} в ${hm}`;
+};
 const fmtDur = m => m ? `${Math.floor(m / 60)} ч ${String(m % 60).padStart(2, "0")} м` : "";
 // Даты считаем в местном времени браузера (не через UTC: в Финляндии UTC+2,
 // и toISOString() сдвигал полночь на предыдущий день).
@@ -334,7 +341,7 @@ function show() {
   const wFrom = iso(addDays(today, d0)), wTo = iso(addDays(today, d1));
 
   const st = $("status"); st.classList.remove("err"); st.title = "";
-  let s = LAST ? `Последняя проверка: ${fmtDT(LAST.checked_at)}` : "";
+  let s = LAST ? `Последняя проверка: ${relDT(LAST.checked_at)} · следующая около ${relDT(new Date(+new Date(LAST.checked_at) + 4 * 3600e3).toISOString())}` : "";
   s += ` · вылеты ${fmtDate(wFrom)} – ${fmtDate(wTo)}`;
   st.textContent = s;
 
