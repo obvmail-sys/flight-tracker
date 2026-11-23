@@ -341,7 +341,7 @@ function show() {
   const wFrom = iso(addDays(today, d0)), wTo = iso(addDays(today, d1));
 
   const st = $("status"); st.classList.remove("err"); st.title = "";
-  let s = LAST ? `Последняя проверка: ${relDT(LAST.checked_at)} · следующая около ${relDT(new Date(+new Date(LAST.checked_at) + 4 * 3600e3).toISOString())}` : "";
+  let s = LAST ? `Последняя проверка: ${relDT(LAST.checked_at)} · следующая ≈ ${relDT(new Date(+new Date(LAST.checked_at) + 4 * 3600e3).toISOString())}` : "";
   s += ` · вылеты ${fmtDate(wFrom)} – ${fmtDate(wTo)}`;
   st.textContent = s;
 
