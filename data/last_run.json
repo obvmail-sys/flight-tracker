@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-11-24T02:54:09Z",
+  "checked_at": "2026-11-24T06:54:23Z",
   "ok": true,
   "requests": 112,
   "errors": [],
@@ -7,8 +7,8 @@
     "from": "2026-11-24",
     "to": "2027-05-23"
   },
-  "found": 193,
-  "added": 2,
+  "found": 192,
+  "added": 0,
   "config": {
     "collect_days_min": 0,
     "collect_days_max": 180
@@ -55,7 +55,7 @@
         "FMM-HEL"
       ],
       "found": {
-        "HEL-MUC": 38,
+        "HEL-MUC": 37,
         "MUC-HEL": 34,
         "HEL-AGB": 0,
         "AGB-HEL": 0,
@@ -75,11 +75,11 @@
     "BCN-HEL": {
       "found": 48,
       "errors": 0,
-      "added": 2,
+      "added": 0,
       "total": 98
     },
     "HEL-MUC": {
-      "found": 38,
+      "found": 37,
       "errors": 0,
       "added": 0,
       "total": 44
