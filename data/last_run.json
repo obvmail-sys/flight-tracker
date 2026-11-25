@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-11-25T02:55:30Z",
+  "checked_at": "2026-11-25T06:55:40Z",
   "ok": true,
   "requests": 112,
   "errors": [],
@@ -7,7 +7,7 @@
     "from": "2026-11-25",
     "to": "2027-05-24"
   },
-  "found": 207,
+  "found": 203,
   "added": 0,
   "config": {
     "collect_days_min": 0,
@@ -29,7 +29,7 @@
         "BCN-HEL"
       ],
       "found": {
-        "HEL-BCN": 66,
+        "HEL-BCN": 62,
         "BCN-HEL": 64
       },
       "failed_legs": []
@@ -67,7 +67,7 @@
   ],
   "legs": {
     "HEL-BCN": {
-      "found": 66,
+      "found": 62,
       "errors": 0,
       "added": 0,
       "total": 125
