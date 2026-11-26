@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-11-26T14:56:45Z",
+  "checked_at": "2026-11-26T18:56:50Z",
   "ok": true,
   "requests": 112,
   "errors": [],
@@ -7,8 +7,8 @@
     "from": "2026-11-26",
     "to": "2027-05-25"
   },
-  "found": 203,
-  "added": 10,
+  "found": 199,
+  "added": 14,
   "config": {
     "collect_days_min": 0,
     "collect_days_max": 180
@@ -29,8 +29,8 @@
         "BCN-HEL"
       ],
       "found": {
-        "HEL-BCN": 68,
-        "BCN-HEL": 64
+        "HEL-BCN": 66,
+        "BCN-HEL": 62
       },
       "failed_legs": []
     },
@@ -55,8 +55,8 @@
         "FMM-HEL"
       ],
       "found": {
-        "HEL-MUC": 44,
-        "MUC-HEL": 26,
+        "HEL-MUC": 42,
+        "MUC-HEL": 28,
         "HEL-AGB": 0,
         "AGB-HEL": 0,
         "HEL-FMM": 1,
@@ -67,28 +67,28 @@
   ],
   "legs": {
     "HEL-BCN": {
-      "found": 68,
+      "found": 66,
       "errors": 0,
       "added": 6,
-      "total": 142
+      "total": 148
     },
     "BCN-HEL": {
-      "found": 64,
+      "found": 62,
       "errors": 0,
-      "added": 4,
+      "added": 0,
       "total": 156
     },
     "HEL-MUC": {
-      "found": 44,
+      "found": 42,
       "errors": 0,
-      "added": 0,
-      "total": 72
+      "added": 2,
+      "total": 74
     },
     "MUC-HEL": {
-      "found": 26,
+      "found": 28,
       "errors": 0,
-      "added": 0,
-      "total": 59
+      "added": 6,
+      "total": 65
     },
     "HEL-AGB": {
       "found": 0,
