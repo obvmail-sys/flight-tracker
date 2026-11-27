@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-11-27T02:43:53Z",
+  "checked_at": "2026-11-27T02:57:06Z",
   "ok": true,
   "requests": 140,
   "errors": [],
@@ -8,7 +8,7 @@
     "to": "2027-05-26"
   },
   "found": 214,
-  "added": 13,
+  "added": 0,
   "config": {
     "collect_days_min": 0,
     "collect_days_max": 180
@@ -89,7 +89,7 @@
     "HEL-BCN": {
       "found": 70,
       "errors": 0,
-      "added": 6,
+      "added": 0,
       "total": 158
     },
     "BCN-HEL": {
@@ -101,7 +101,7 @@
     "HEL-KBV": {
       "found": 5,
       "errors": 0,
-      "added": 5,
+      "added": 0,
       "total": 5
     },
     "KBV-HEL": {
@@ -119,7 +119,7 @@
     "MUC-HEL": {
       "found": 30,
       "errors": 0,
-      "added": 2,
+      "added": 0,
       "total": 69
     },
     "HEL-AGB": {
