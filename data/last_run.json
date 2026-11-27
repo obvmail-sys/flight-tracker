@@ -1,14 +1,14 @@
 {
-  "checked_at": "2026-11-26T22:56:58Z",
+  "checked_at": "2026-11-27T02:43:53Z",
   "ok": true,
-  "requests": 112,
+  "requests": 140,
   "errors": [],
   "window": {
-    "from": "2026-11-26",
-    "to": "2027-05-25"
+    "from": "2026-11-27",
+    "to": "2027-05-26"
   },
-  "found": 207,
-  "added": 0,
+  "found": 214,
+  "added": 13,
   "config": {
     "collect_days_min": 0,
     "collect_days_max": 180
@@ -29,8 +29,28 @@
         "BCN-HEL"
       ],
       "found": {
-        "HEL-BCN": 68,
+        "HEL-BCN": 70,
         "BCN-HEL": 66
+      },
+      "failed_legs": []
+    },
+    {
+      "id": "hel_kbv",
+      "name": "Краби",
+      "from": [
+        "HEL"
+      ],
+      "to": [
+        "KBV"
+      ],
+      "unknown": [],
+      "legs": [
+        "HEL-KBV",
+        "KBV-HEL"
+      ],
+      "found": {
+        "HEL-KBV": 5,
+        "KBV-HEL": 0
       },
       "failed_legs": []
     },
@@ -67,16 +87,28 @@
   ],
   "legs": {
     "HEL-BCN": {
-      "found": 68,
+      "found": 70,
       "errors": 0,
-      "added": 0,
-      "total": 152
+      "added": 6,
+      "total": 158
     },
     "BCN-HEL": {
       "found": 66,
       "errors": 0,
       "added": 0,
       "total": 168
+    },
+    "HEL-KBV": {
+      "found": 5,
+      "errors": 0,
+      "added": 5,
+      "total": 5
+    },
+    "KBV-HEL": {
+      "found": 0,
+      "errors": 0,
+      "added": 0,
+      "total": 0
     },
     "HEL-MUC": {
       "found": 42,
@@ -87,8 +119,8 @@
     "MUC-HEL": {
       "found": 30,
       "errors": 0,
-      "added": 0,
-      "total": 67
+      "added": 2,
+      "total": 69
     },
     "HEL-AGB": {
       "found": 0,
@@ -135,6 +167,11 @@
       "Вантаа",
       "Хельсинки",
       "Финляндия"
+    ],
+    "KBV": [
+      "Краби",
+      "Краби",
+      "Таиланд"
     ],
     "MUC": [
       "Франц Йозеф Штраус",
