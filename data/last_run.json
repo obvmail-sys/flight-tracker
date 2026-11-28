@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-11-28T02:57:52Z",
+  "checked_at": "2026-11-28T06:58:01Z",
   "ok": true,
   "requests": 140,
   "errors": [],
@@ -8,7 +8,7 @@
     "to": "2027-05-27"
   },
   "found": 222,
-  "added": 2,
+  "added": 1,
   "config": {
     "collect_days_min": 0,
     "collect_days_max": 180
@@ -119,8 +119,8 @@
     "MUC-HEL": {
       "found": 30,
       "errors": 0,
-      "added": 2,
-      "total": 76
+      "added": 1,
+      "total": 77
     },
     "HEL-AGB": {
       "found": 0,
